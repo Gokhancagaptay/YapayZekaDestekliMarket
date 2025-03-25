@@ -1,10 +1,13 @@
 from dotenv import load_dotenv
 import os
 
+
 # .env dosyasını yükle
 load_dotenv()
 
 # Çevresel değişkenleri al
+email=os.getenv("email")
+password=os.getenv("password")
 MONGO_URL = os.getenv("MONGO_URL")
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
