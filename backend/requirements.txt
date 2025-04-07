@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pymongo
+firebase-admin
+requests
+openai>=1.0.0
+python-dotenv
