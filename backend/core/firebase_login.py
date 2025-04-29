@@ -9,7 +9,7 @@ load_dotenv()
 
 # Firebase Admin SDK Başlatma
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
-cred = credentials.Certificate("marketonline44_yenı.json")
+cred = credentials.Certificate("/app/firebase.json")
 firebase_admin.initialize_app(cred)
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")

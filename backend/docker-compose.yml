@@ -9,4 +9,5 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ./marketonline44_yenı.json:/app/firebase.json
+      - ./firebase.json:/app/firebase.json
+

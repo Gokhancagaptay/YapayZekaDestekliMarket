@@ -19,18 +19,17 @@ class Product(BaseModel):
     name: str
     price: float
     stock: int
+    image_url: str
 
 # 🔹 Ürün ekleme (JWT doğrulama ile)
-@router.post("/add", summary="Ürün Ekle", description="Admin kullanıcıların yeni bir ürün eklemesine olanak tanır.")
-def add_product(product: Product, user_data=Depends(verify_token)):
-    user, role = user_data
-    print("Rol kontrol:", role)  # Ekleyip kontrol edebilirsin!
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Erişim reddedildi: Yalnızca adminler ürün ekleyebilir.")
-    
+@router.post("/add", summary="Ürün Ekle", description="Kullanıcıların yeni bir ürün eklemesine olanak tanır.")
+def add_product(product: Product):
+    user, _ = user_data  # Artık role kontrol etmiyoruz
+    print(f"Ürün ekleyen kullanıcı: {user.get('email')}")  # Sadece bilgilendirme için
     product_dict = product.dict()
     collection.insert_one(product_dict)
-    return {"message": f"Ürün eklendi, ekleyen: {user.get('email')}"}
+    return {"message": f"Ürün başarıyla eklendi! Ekleyen kullanıcı: {user.get('email')}"}
+
 
 # 🔹 Tüm ürünleri listeleme
 @router.get("/", summary="Tüm Ürünleri Listele", description="Tüm ürünleri listelemek için kullanılır.")
