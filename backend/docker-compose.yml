@@ -10,4 +10,3 @@ services:
       - ./.env
     volumes:
       - ./firebase.json:/app/firebase.json
-

@@ -20,6 +20,7 @@ class Product(BaseModel):
     price: float
     stock: int
     image_url: str
+    category: str  
 
 # 🔹 Ürün ekleme (JWT doğrulama ile)
 @router.post("/add", summary="Ürün Ekle", description="Kullanıcıların yeni bir ürün eklemesine olanak tanır.")
@@ -32,10 +33,14 @@ def add_product(product: Product):
 
 
 # 🔹 Tüm ürünleri listeleme
-@router.get("/", summary="Tüm Ürünleri Listele", description="Tüm ürünleri listelemek için kullanılır.")
-def get_products():
-    products = list(collection.find({}, {"_id": 0}))
+@router.get("/", summary="Tüm Ürünleri Listele", description="Tüm ürünleri veya kategoriye göre ürünleri listelemek için kullanılır.")
+def get_products(category: str = None):
+    query = {}
+    if category:
+        query["category"] = category  # 🔍 sadece bu satırla filtreleme yapılır
+    products = list(collection.find(query, {"_id": 0}))
     return {"products": products}
+
 
 # 🔹 Belirli bir ürünü getirme
 @router.get("/{name}", summary="Belli bir ürün getirme", description="Belli bir ürün sorgusu için")

@@ -4,14 +4,20 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth, credentials, firestore, initialize_app
 from pydantic import BaseModel
 from core.settings import FIREBASE_API_KEY
+from firebase_admin import db
 
 
-router = APIRouter()
+
+
+router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer()
 
 class UserRegister(BaseModel):
     email: str
     password: str
+    name: str
+    surname: str
+    phone: str
     role: str = "user"
 
 class UserLogin(BaseModel):
@@ -22,20 +28,41 @@ class UserLogin(BaseModel):
 @router.post("/register", summary="Kullanıcı Kaydı", description="Yeni bir kullanıcı kaydı oluşturur.")
 def register(user: UserRegister):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
-    payload = {"email": user.email, "password": user.password, "returnSecureToken": True}
+    payload = {
+        "email": user.email,
+        "password": user.password,
+        "returnSecureToken": True
+    }
     response = requests.post(url, json=payload)
     data = response.json()
 
     if "idToken" in data:
         user_id = data["localId"]
+
+        # Firebase yetki rolü atama
         try:
             auth.set_custom_user_claims(user_id, {"role": user.role})
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Rol ataması hatası: {str(e)}")
 
+        # Ek kullanıcı bilgilerini realtime database'e yazma
+        try:
+            db.reference(f"users/{user_id}").set({
+                "name": user.name,
+                "surname": user.surname,
+                "phone": user.phone,
+                "email": user.email,
+                "role": user.role
+            })
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Veritabanı yazım hatası: {str(e)}")
+
         return {"message": "Kullanıcı başarıyla kaydedildi!", "idToken": data["idToken"]}
     else:
-        raise HTTPException(status_code=400, detail=data.get("error", {}).get("message", "Bilinmeyen hata!"))
+        raise HTTPException(
+            status_code=400,
+            detail=data.get("error", {}).get("message", "Bilinmeyen hata!")
+        )
 
 # 🔹 Kullanıcı giriş işlemi
 @router.post("/login", summary="Kullanıcı Girişi", description="Mevcut bir kullanıcı için giriş yapar.")
