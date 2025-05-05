@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_page.dart' show GirisEkrani;
 import 'screens/product_list.dart';
 import 'screens/register_screen.dart';
+import 'screens/login_screen.dart'; // giriş ekranı dosyanın adını buna göre ayarlamayı unutma
 
 void main() {
   runApp(const MyApp());
@@ -57,9 +58,14 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
+      // ilk yönlendirme ekranı:
       home: isLoggedIn ? const ProductListPage() : const GirisEkrani(),
+
+      // sayfa rotaları:
       routes: {
         '/register': (context) => const RegisterScreen(),
+        '/login': (context) => const GirisEkrani(), // Giriş ekranı rotası
+        '/products': (context) => const ProductListPage(), // Ürün sayfası
       },
     );
   }

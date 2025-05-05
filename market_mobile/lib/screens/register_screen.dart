@@ -16,33 +16,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final passwordController = TextEditingController();
   final phoneController = TextEditingController();
 
-  Future<void> registerUser() async {
-    final url = Uri.parse('http://10.0.2.2:8000/register');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "email": emailController.text,
-        "password": passwordController.text,
-        "role": "user",
-        "name": nameController.text,
-        "surname": surnameController.text,
-        "phone": phoneController.text,
-      }),
-    );
+Future<void> registerUser() async {
+  final url = Uri.parse('http://10.0.2.2:8000/auth/register'); // ✅ DÜZELTİLDİ
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      "email": emailController.text.trim(),
+      "password": passwordController.text.trim(),
+      "role": "user",
+      "name": nameController.text.trim(),
+      "surname": surnameController.text.trim(),
+      "phone": phoneController.text.trim(),
+    }),
+  );
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Kayıt başarılı!")),
-      );
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Hata: ${data['detail']}")),
-      );
-    }
+  final data = jsonDecode(response.body);
+  if (response.statusCode == 200) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Kayıt başarılı!")),
+    );
+    Navigator.pop(context); // 🔁 Giriş ekranına dön
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Hata: ${data['detail']}")),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

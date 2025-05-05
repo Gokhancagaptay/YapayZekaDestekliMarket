@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'product_list.dart';
 
-class GirisEkrani extends StatefulWidget {
-  const GirisEkrani({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<GirisEkrani> createState() => _GirisEkraniState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _GirisEkraniState extends State<GirisEkrani> {
+class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
@@ -28,13 +26,11 @@ class _GirisEkraniState extends State<GirisEkrani> {
 
     final data = jsonDecode(response.body);
     if (response.statusCode == 200) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('token', data['idToken']);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProductListPage()),
+      final token = data["idToken"];
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Giriş başarılı!")),
       );
+      // TODO: Token'ı sakla, ana sayfaya yönlendir
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Hata: ${data['detail']}")),
@@ -50,32 +46,22 @@ class _GirisEkraniState extends State<GirisEkrani> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 60),
               const Text(
                 "Find the Best\nHealth for You",
-                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 48),
-              _buildTextField(
-                controller: emailController,
-                hint: "Email",
-                icon: Icons.email,
-              ),
+              const SizedBox(height: 40),
+              _buildTextField(emailController, "Email", icon: Icons.email),
               const SizedBox(height: 16),
-              _buildTextField(
-                controller: passwordController,
-                hint: "Password",
-                icon: Icons.lock,
-                obscure: true,
-              ),
-              const SizedBox(height: 24),
+              _buildTextField(passwordController, "Password", icon: Icons.lock, obscureText: true),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -84,7 +70,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF2552C),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Text(
@@ -94,20 +80,14 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                "Hesabınız yok mu?",
-                style: TextStyle(color: Colors.white70),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/register');
-                },
-                child: const Text(
-                  "Kayıt Ol",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                    decoration: TextDecoration.underline,
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, "/register");
+                  },
+                  child: const Text(
+                    "Don't have an account?",
+                    style: TextStyle(color: Colors.white70),
                   ),
                 ),
               )
@@ -118,25 +98,21 @@ class _GirisEkraniState extends State<GirisEkrani> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool obscure = false,
-  }) {
+  Widget _buildTextField(TextEditingController controller, String hint,
+      {bool obscureText = false, IconData? icon}) {
     return TextField(
       controller: controller,
-      obscureText: obscure,
+      obscureText: obscureText,
       style: const TextStyle(color: Colors.black),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon, color: Colors.black),
         hintStyle: const TextStyle(color: Colors.black45),
         filled: true,
         fillColor: Colors.white,
+        prefixIcon: icon != null ? Icon(icon, color: Colors.black45) : null,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
       ),

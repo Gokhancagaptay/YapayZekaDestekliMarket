@@ -7,15 +7,22 @@ import firebase_admin
 from firebase_admin import credentials, auth
 import os
 from dotenv import load_dotenv
-from backend.api.user import router as user_router
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from api.user import router as user_router
 
 
 # Load environment variables
 load_dotenv()
 
+
 # Initialize Firebase Admin
 cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS_PATH"))
-firebase_admin.initialize_app(cred)
+firebase_admin.initialize_app(cred, {
+    "databaseURL": os.getenv("FIREBASE_DB_URL")
+})
+
 
 app = FastAPI(
     title="Online Market AI Assistant",

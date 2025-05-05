@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/cart_provider.dart';
 import 'package:provider/provider.dart';
 import 'cart_screen.dart';
+import 'profile_screen.dart'; // ✅ Profil ekranı
 
 String getBaseUrl() {
   if (kIsWeb) {
@@ -83,7 +84,7 @@ class _ProductListPageState extends State<ProductListPage> {
                 ),
               ],
             ),
-            Padding(
+            const Padding(
               padding: EdgeInsets.only(top: 12.0),
               child: Icon(Icons.notifications_none, color: Colors.white70, size: 20),
             ),
@@ -183,11 +184,19 @@ class _ProductListPageState extends State<ProductListPage> {
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  Icon(Icons.home, color: Colors.black87),
-                  Icon(Icons.settings_outlined, color: Colors.black54),
-                  Icon(Icons.shopping_cart_outlined, color: Colors.black54),
-                  Icon(Icons.person_outline, color: Colors.black54),
+                children: [
+                  const Icon(Icons.home, color: Colors.black87),
+                  const Icon(Icons.settings_outlined, color: Colors.black54),
+                  const Icon(Icons.shopping_cart_outlined, color: Colors.black54),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                      );
+                    },
+                    child: const Icon(Icons.person_outline, color: Colors.black54),
+                  ),
                 ],
               ),
             ),
