@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+from database import collection
 from api.user import router as user_router
 
 
@@ -18,9 +18,9 @@ load_dotenv()
 
 
 # Initialize Firebase Admin
-cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS_PATH"))
+cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS"))
 firebase_admin.initialize_app(cred, {
-    "databaseURL": os.getenv("FIREBASE_DB_URL")
+    "databaseURL": "https://marketonline44-default-rtdb.firebaseio.com"
 })
 
 
@@ -97,10 +97,17 @@ async def add_product(product: Product, current_user: User = Depends(get_current
     # TODO: Implement product addition logic
     return {"message": "Product added successfully", "product": product}
 
-@app.get("/products/", response_model=List[Product])
-async def get_products(current_user: User = Depends(get_current_user)):
-    # TODO: Implement product retrieval logic
-    return []
+@app.get("/products/")
+async def get_products(token: Optional[str] = Depends(oauth2_scheme)):
+    try:
+        if token:
+            auth.verify_id_token(token)  # geçerliyse kullanıcıdır, ama zorunlu değil
+    except:
+        pass  # token geçersizse yine de devam et
+
+    products = list(collection.find({}, {"_id": 0}))
+    return {"products": products}
+
 
 # Recipe endpoints
 @app.get("/recipes/", response_model=List[Recipe])

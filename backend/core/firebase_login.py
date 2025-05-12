@@ -9,8 +9,20 @@ load_dotenv()
 
 # Firebase Admin SDK Başlatma
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
-cred = credentials.Certificate("/app/firebase.json")
-firebase_admin.initialize_app(cred)
+print(f"Firebase Credentials Path: {FIREBASE_CREDENTIALS}")  # Debug için
+
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+        firebase_admin.initialize_app(cred, {
+            "databaseURL": "https://marketonline44-default-rtdb.firebaseio.com"
+        })
+        print("✅ Firebase başarıyla başlatıldı")
+    else:
+        print("ℹ️ Firebase zaten başlatılmış")
+except Exception as e:
+    print(f"❌ Firebase başlatma hatası: {str(e)}")
+    raise e
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 EMAIL = os.getenv("email")

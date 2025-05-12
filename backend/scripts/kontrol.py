@@ -5,8 +5,22 @@ from api.product import router as product_router
 from core.firebase_login import *
 from api.recipe import router as recipe_router
 from fastapi.middleware.cors import CORSMiddleware
+import firebase_admin
+from firebase_admin import credentials
 
-
+# Firebase başlatma - sadece henüz başlatılmamışsa
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+        firebase_admin.initialize_app(cred, {
+            "databaseURL": "https://marketonline44-default-rtdb.firebaseio.com"
+        })
+        print("✅ Firebase başarıyla başlatıldı (kontrol.py)")
+    else:
+        print("ℹ️ Firebase zaten başlatılmış")
+except Exception as e:
+    print(f"❌ Firebase başlatma hatası (kontrol.py): {str(e)}")
+    raise e
 
 app = FastAPI()
 app.add_middleware(
@@ -17,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # 📌 Kullanıcı ve ürün API'lerini buraya ekliyoruz
-app.include_router(user_router, prefix="/users", tags=["Kullanıcı İşlemleri"])
+app.include_router(user_router, prefix="/auth", tags=["Kullanıcı İşlemleri"])
 app.include_router(product_router, prefix="/products", tags=["Ürün İşlemleri"])
 app.include_router(recipe_router, prefix="/recipes", tags=["Tarif Önerisi"])
 

@@ -1,33 +1,104 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class CartItem {
+  final String id;
   final String name;
   final double price;
   final String imageUrl;
+  int quantity;
+  final int? stock;
+  final String? label;
 
   CartItem({
+    required this.id,
     required this.name,
     required this.price,
     required this.imageUrl,
+    this.quantity = 1,
+    this.stock,
+    this.label,
   });
 }
 
-class CartProvider extends ChangeNotifier {
-  final List<CartItem> _items = [];
+class CartProvider with ChangeNotifier {
+  Map<String, CartItem> _items = {};
 
-  List<CartItem> get items => _items;
+  Map<String, CartItem> get items {
+    return {..._items};
+  }
 
-  void addItem(CartItem item) {
-    _items.add(item);
+  int get itemCount {
+    return _items.length;
+  }
+
+  double get totalAmount {
+    var total = 0.0;
+    _items.forEach((key, cartItem) {
+      total += cartItem.price * cartItem.quantity;
+    });
+    return total;
+  }
+
+  void addItem(String productId, String name, double price, String imageUrl, {int? stock, String? label}) {
+    if (_items.containsKey(productId)) {
+      _items.update(
+        productId,
+        (existingCartItem) => CartItem(
+          id: existingCartItem.id,
+          name: existingCartItem.name,
+          price: existingCartItem.price,
+          imageUrl: existingCartItem.imageUrl,
+          quantity: existingCartItem.quantity + 1,
+          stock: existingCartItem.stock,
+          label: existingCartItem.label,
+        ),
+      );
+    } else {
+      _items.putIfAbsent(
+        productId,
+        () => CartItem(
+          id: productId,
+          name: name,
+          price: price,
+          imageUrl: imageUrl,
+          stock: stock,
+          label: label,
+        ),
+      );
+    }
     notifyListeners();
   }
 
-  void clearCart() {
-    _items.clear();
+  void removeItem(String productId) {
+    _items.remove(productId);
     notifyListeners();
   }
 
-  double get total {
-    return _items.fold(0.0, (sum, item) => sum + item.price);
+  void removeSingleItem(String productId) {
+    if (!_items.containsKey(productId)) {
+      return;
+    }
+    if (_items[productId]!.quantity > 1) {
+      _items.update(
+        productId,
+        (existingCartItem) => CartItem(
+          id: existingCartItem.id,
+          name: existingCartItem.name,
+          price: existingCartItem.price,
+          imageUrl: existingCartItem.imageUrl,
+          quantity: existingCartItem.quantity - 1,
+          stock: existingCartItem.stock,
+          label: existingCartItem.label,
+        ),
+      );
+    } else {
+      _items.remove(productId);
+    }
+    notifyListeners();
+  }
+
+  void clear() {
+    _items = {};
+    notifyListeners();
   }
 }

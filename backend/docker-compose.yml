@@ -13,4 +13,4 @@ services:
       - ./firebase.json:/app/firebase.json
     env_file:
       - .env
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "scripts.kontrol:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

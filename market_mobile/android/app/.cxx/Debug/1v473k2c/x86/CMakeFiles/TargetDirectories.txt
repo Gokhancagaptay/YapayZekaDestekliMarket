@@ -1,0 +1,2 @@
+C:/OnlineMarketProjesi/market_mobile/android/app/.cxx/Debug/1v473k2c/x86/CMakeFiles/edit_cache.dir
+C:/OnlineMarketProjesi/market_mobile/android/app/.cxx/Debug/1v473k2c/x86/CMakeFiles/rebuild_cache.dir

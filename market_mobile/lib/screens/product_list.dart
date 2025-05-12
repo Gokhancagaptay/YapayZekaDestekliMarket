@@ -7,15 +7,15 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/cart_provider.dart';
 import 'package:provider/provider.dart';
 import 'cart_screen.dart';
-import 'profile_screen.dart'; // ✅ Profil ekranı
+import 'profile_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 String getBaseUrl() {
   if (kIsWeb) {
     return 'http://localhost:8000';
-  } else if (Platform.isAndroid) {
-    return 'http://10.0.2.2:8000';
   } else {
-    return 'http://localhost:8000';
+    return 'http://10.0.2.2:8000';
   }
 }
 
@@ -45,23 +45,259 @@ class _ProductListPageState extends State<ProductListPage> {
     fetchProducts();
   }
 
-  Future<void> fetchProducts() async {
-    final url = Uri.parse("${getBaseUrl()}/products/?category=$selectedCategory");
+Future<void> fetchProducts() async {
+  try {
+    final url = Uri.parse("${getBaseUrl()}/products/by-category/$selectedCategory");
+    print("İstek URL: $url"); // Debug için URL'yi yazdır
+    
     final response = await http.get(url);
+    print("Response Status: ${response.statusCode}"); // Debug için status code'u yazdır
+    print("Response Body: ${response.body}"); // Debug için response body'yi yazdır
+
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
       setState(() {
         products = json["products"];
       });
     } else {
+      print("HATA: ${response.statusCode} - ${response.body}");
       setState(() {
         products = [];
       });
     }
+  } catch (e) {
+    print("Bağlantı hatası: $e");
+    setState(() {
+      products = [];
+    });
   }
+}
+
+void _showSidePanel(BuildContext context, Widget child) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: "Kapat",
+    transitionDuration: const Duration(milliseconds: 300),
+    pageBuilder: (context, anim1, anim2) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 400,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              color: Color(0xFF232323),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 24,
+                  offset: Offset(-8, 0),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: child,
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (context, anim1, anim2, child) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+        child: child,
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      // WEB TASARIMI
+      return Scaffold(
+        backgroundColor: const Color(0xFF232323),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF232323),
+          elevation: 0,
+          toolbarHeight: 80,
+          title: Row(
+            children: [
+              const Icon(Icons.shopping_basket, color: Colors.deepOrange, size: 36),
+              const SizedBox(width: 12),
+              const Text(
+                "Online Market",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 28, letterSpacing: 0.5),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.account_circle, color: Colors.white, size: 32),
+                onPressed: () {
+                  _showSidePanel(context, const ProfileScreen(inPanel: true));
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Consumer<CartProvider>(
+                        builder: (context, cart, child) {
+                          return cart.itemCount > 0
+                              ? Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.deepOrange,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '${cart.itemCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                onPressed: () {
+                  _showSidePanel(context, const CartScreen());
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.notifications_none, color: Colors.white70, size: 26),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+        body: Row(
+          children: [
+            // Sol Menü (Kategoriler)
+            Container(
+              width: 220,
+              color: const Color(0xFF232323),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      "Kategoriler",
+                      style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...categories.map((item) {
+                    final isSelected = selectedCategory == item["key"];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: ListTile(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        tileColor: const Color(0xFF232323),
+                        leading: Icon(Icons.label, color: Colors.white),
+                        title: Text(
+                          item["title"]!,
+                          style: TextStyle(
+                            color: isSelected ? Colors.deepOrange : Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            selectedCategory = item["key"]!;
+                            fetchProducts();
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+            // Sağ Grid (Ürünler)
+            Expanded(
+              child: Container(
+                color: const Color(0xFF282828),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        categories.firstWhere((element) => element['key'] == selectedCategory)['title'] ?? '',
+                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            int crossAxisCount = 3;
+                            if (constraints.maxWidth > 1200) {
+                              crossAxisCount = 4;
+                            } else if (constraints.maxWidth < 900) {
+                              crossAxisCount = 2;
+                            }
+                            return GridView.builder(
+                              itemCount: products.length,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 24,
+                                mainAxisSpacing: 24,
+                                childAspectRatio: 3 / 4,
+                              ),
+                              itemBuilder: (context, index) {
+                                final product = products[index];
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ProductCard(
+                                    id: product["id"] ?? product["_id"] ?? product["name"],
+                                    imageUrl: product["image_url"],
+                                    name: product["name"],
+                                    price: (product["price"] as num).toDouble(),
+                                    stock: product["stock"] ?? 0,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // MOBİL TASARIM (mevcut haliyle)
     return Scaffold(
       backgroundColor: const Color(0xFF2F2F2F),
       extendBody: true,
@@ -71,24 +307,32 @@ class _ProductListPageState extends State<ProductListPage> {
         toolbarHeight: 100,
         automaticallyImplyLeading: false,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.account_circle, color: Colors.white, size: 32),
-                SizedBox(height: 4),
-                Text(
-                  "Find the Best\nHealth for You",
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.only(top: 12.0),
-              child: Icon(Icons.notifications_none, color: Colors.white70, size: 20),
-            ),
-          ],
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProfileScreen(inPanel: true)),
+                        );
+                      },
+                      child: const Icon(Icons.account_circle, color: Colors.white, size: 32),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Find the Best\nHealth for You",
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+    ),
+    const Padding(
+      padding: EdgeInsets.only(top: 12.0),
+      child: Icon(Icons.notifications_none, color: Colors.white70, size: 20),
+    ),
+  ],
         ),
       ),
       body: Column(
@@ -131,15 +375,14 @@ class _ProductListPageState extends State<ProductListPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Text(
-                  categories.firstWhere((element) => element['key'] == selectedCategory)['title'] ?? '',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Text(
+                categories.firstWhere((element) => element['key'] == selectedCategory)['title'] ?? '',
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -157,9 +400,11 @@ class _ProductListPageState extends State<ProductListPage> {
                 itemBuilder: (context, index) {
                   final product = products[index];
                   return ProductCard(
+                    id: product["id"] ?? product["_id"] ?? product["name"],
                     imageUrl: product["image_url"],
                     name: product["name"],
                     price: (product["price"] as num).toDouble(),
+                    stock: product["stock"] ?? 0,
                   );
                 },
               ),
@@ -169,10 +414,10 @@ class _ProductListPageState extends State<ProductListPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
+              margin: const EdgeInsets.symmetric(horizontal: 24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -181,18 +426,56 @@ class _ProductListPageState extends State<ProductListPage> {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   const Icon(Icons.home, color: Colors.black87),
                   const Icon(Icons.settings_outlined, color: Colors.black54),
-                  const Icon(Icons.shopping_cart_outlined, color: Colors.black54),
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: Stack(
+                          children: [
+                            const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Consumer<CartProvider>(
+                                builder: (context, cart, child) {
+                                  return cart.itemCount > 0
+                                      ? Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.deepOrange,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(
+                                            '${cart.itemCount}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                      : const SizedBox.shrink();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        onPressed: () {
+                          _showSidePanel(context, const CartScreen());
+                        },
+                      ),
+                    ],
+                  ),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                        MaterialPageRoute(builder: (_) => const ProfileScreen(inPanel: true)),
                       );
                     },
                     child: const Icon(Icons.person_outline, color: Colors.black54),

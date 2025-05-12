@@ -1,12 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-const String baseUrl = 'http://10.0.2.2:8000';
+String getBaseUrl() {
+  if (kIsWeb) {
+    return 'http://localhost:8000';
+  } else {
+    return 'http://10.0.2.2:8000';
+  }
+}
+
 class ApiService {
   // Ürünleri çek
   static Future<List<Product>> fetchProducts() async {
-    final url = Uri.parse('$baseUrl/products');
+    final url = Uri.parse('$getBaseUrl()/products');
     final res = await http.get(url);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body)['products'] as List;
@@ -17,7 +25,7 @@ class ApiService {
 
   // Tarif öner
   static Future<String> suggestRecipe(List<String> names) async {
-    final url = Uri.parse('$baseUrl/recipes/suggest');
+    final url = Uri.parse('$getBaseUrl()/recipes/suggest');
     final res = await http.post(url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'ingredients': names.join(',')}));
@@ -29,7 +37,7 @@ class ApiService {
 
   // Besin analizi
   static Future<Map<String, dynamic>> analyze(List<String> names) async {
-    final url = Uri.parse('$baseUrl/recipes/analyze');
+    final url = Uri.parse('$getBaseUrl()/recipes/analyze');
     final res = await http.post(url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'ingredients': names.join(',')}));

@@ -31,19 +31,28 @@ def add_product(product: Product):
     collection.insert_one(product_dict)
     return {"message": f"Ürün başarıyla eklendi! Ekleyen kullanıcı: {user.get('email')}"}
 
-
 # 🔹 Tüm ürünleri listeleme
-@router.get("/", summary="Tüm Ürünleri Listele", description="Tüm ürünleri veya kategoriye göre ürünleri listelemek için kullanılır.")
-def get_products(category: str = None):
-    query = {}
-    if category:
-        query["category"] = category  # 🔍 sadece bu satırla filtreleme yapılır
-    products = list(collection.find(query, {"_id": 0}))
-    return {"products": products}
+@router.get("/", summary="Tüm Ürünleri Listele")
+def get_all_products():
+    try:
+        products = list(collection.find({}, {"_id": 0}))
+        return {"products": products}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ürünler listelenirken bir hata oluştu: {str(e)}")
 
+# 🔹 Kategoriye göre ürünleri listeleme
+@router.get("/by-category/{category}", summary="Kategoriye Göre Ürünleri Listele")
+def get_products_by_category(category: str):
+    try:
+        products = list(collection.find({"category": category}, {"_id": 0}))
+        if not products:
+            return {"message": f"{category} kategorisinde ürün bulunamadı!", "products": []}
+        return {"products": products}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kategori listelenirken bir hata oluştu: {str(e)}")
 
 # 🔹 Belirli bir ürünü getirme
-@router.get("/{name}", summary="Belli bir ürün getirme", description="Belli bir ürün sorgusu için")
+@router.get("/by-name/{name}", summary="Belli bir ürün getirme", description="Belli bir ürün sorgusu için")
 def get_product(name: str):
     product = collection.find_one({"name": name}, {"_id": 0})
     if product:
@@ -82,3 +91,19 @@ def delete_product(name: str, user_data=Depends(verify_token)):
     if result.deleted_count:
         return {"message": f"{name} silindi! Silen: {user.get('email')}"}
     return {"error": "Ürün bulunamadı"}
+
+# 🔹 MongoDB Bağlantı Testi
+@router.get("/test-connection")
+def test_connection():
+    try:
+        # Veritabanı bağlantısını test et
+        db.command('ping')
+        # Koleksiyondaki ürün sayısını al
+        count = collection.count_documents({})
+        return {
+            "status": "success",
+            "message": "MongoDB bağlantısı başarılı",
+            "product_count": count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MongoDB bağlantı hatası: {str(e)}")

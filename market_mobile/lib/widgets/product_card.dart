@@ -8,23 +8,25 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 String getBaseUrl() {
   if (kIsWeb) {
     return 'http://localhost:8000';
-  } else if (Platform.isAndroid) {
-    return 'http://10.0.2.2:8000';
   } else {
-    return 'http://localhost:8000';
+    return 'http://10.0.2.2:8000';
   }
 }
 
 class ProductCard extends StatelessWidget {
+  final String id;
   final String imageUrl;
   final String name;
   final double price;
+  final int stock;
 
   const ProductCard({
     super.key,
+    required this.id,
     required this.imageUrl,
     required this.name,
     required this.price,
+    required this.stock,
   });
 
   @override
@@ -104,12 +106,14 @@ class ProductCard extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () {
-                            Provider.of<CartProvider>(context, listen: false).addItem(
-                              CartItem(name: name, price: price, imageUrl: imageUrl),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Ürün sepete eklendi")),
-                            );
+                            if (stock < 1) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Ürün sepete eklenemedi")),
+                              );
+                            } else {
+                              Provider.of<CartProvider>(context, listen: false)
+                                  .addItem(id, name, price, imageUrl, stock: stock);
+                            }
                           },
                         ),
                       ],
