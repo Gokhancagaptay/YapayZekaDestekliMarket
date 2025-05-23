@@ -5,17 +5,17 @@ FROM python:3.11
 WORKDIR /app
 
 # 3️⃣ Gerekli bağımlılıkları yükle
-COPY requirements.txt requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 4️⃣ Uygulama dosyalarını kopyala
-COPY . /app
+COPY . .
 
 # 5️⃣ Çevresel değişkenleri ayarla
 ENV MONGO_URL=mongodb+srv://GokhanCagaptay:0102030h.H@onlinemarket.emtxzjn.mongodb.net/?retryWrites=true&w=majority&appName=onlineMarket
 ENV FIREBASE_CREDENTIALS=/app/firebase.json
 
 # 6️⃣ Başlangıç komutu (FastAPI başlat)
-CMD ["uvicorn", "scripts.kontrol:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:async';  // TimeoutException için gerekli import
 import '../widgets/product_card.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -9,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'stock_screen.dart';
 
 
 String getBaseUrl() {
@@ -48,28 +50,65 @@ class _ProductListPageState extends State<ProductListPage> {
 Future<void> fetchProducts() async {
   try {
     final url = Uri.parse("${getBaseUrl()}/products/by-category/$selectedCategory");
-    print("İstek URL: $url"); // Debug için URL'yi yazdır
+    print("İstek URL: $url");
     
-    final response = await http.get(url);
-    print("Response Status: ${response.statusCode}"); // Debug için status code'u yazdır
-    print("Response Body: ${response.body}"); // Debug için response body'yi yazdır
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Bağlantı zaman aşımına uğradı');
+      },
+    );
+
+    print("Response Status: ${response.statusCode}");
+    print("Response Body: ${response.body}");
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
-      setState(() {
-        products = json["products"];
-      });
+      if (json["products"] != null) {
+        setState(() {
+          products = json["products"];
+        });
+      } else {
+        print("Ürün verisi bulunamadı");
+        setState(() {
+          products = [];
+        });
+      }
     } else {
       print("HATA: ${response.statusCode} - ${response.body}");
       setState(() {
         products = [];
       });
+      // Hata mesajını göster
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ürünler yüklenirken bir hata oluştu: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   } catch (e) {
     print("Bağlantı hatası: $e");
     setState(() {
       products = [];
     });
+    // Hata mesajını göster
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bağlantı hatası: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
@@ -281,6 +320,7 @@ void _showSidePanel(BuildContext context, Widget child) {
                                     name: product["name"],
                                     price: (product["price"] as num).toDouble(),
                                     stock: product["stock"] ?? 0,
+                                    category: product["category"] ?? selectedCategory,
                                   ),
                                 );
                               },
@@ -405,6 +445,7 @@ void _showSidePanel(BuildContext context, Widget child) {
                     name: product["name"],
                     price: (product["price"] as num).toDouble(),
                     stock: product["stock"] ?? 0,
+                    category: product["category"] ?? selectedCategory,
                   );
                 },
               ),

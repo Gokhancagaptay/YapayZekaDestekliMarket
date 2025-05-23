@@ -5,6 +5,13 @@ from firebase_admin import auth, credentials, firestore, initialize_app
 from pydantic import BaseModel
 from core.settings import FIREBASE_API_KEY
 from firebase_admin import db
+from models.user import Address, StockItem, User
+from database import (
+    get_user_by_email, add_address, get_addresses,
+    add_stock_item, get_stock_items, update_stock_item,
+    delete_stock_item, create_user,
+    get_user_by_uid, create_user_from_firebase
+)
 
 router = APIRouter(tags=["auth"])
 security = HTTPBearer()
@@ -73,47 +80,76 @@ def register(user: UserRegister):
 
 # 🔹 Kullanıcı giriş işlemi
 @router.post("/login", summary="Kullanıcı Girişi", description="Mevcut bir kullanıcı için giriş yapar.")
-def login(user: UserLogin):
-    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
-    payload = {"email": user.email, "password": user.password, "returnSecureToken": True}
-    response = requests.post(url, json=payload)
-    data = response.json()
-
-    if "idToken" in data:
-        return {"message": "Giriş başarılı!", "idToken": data["idToken"]}
-    else:
-        raise HTTPException(status_code=400, detail=data.get("error", {}).get("message", "Bilinmeyen hata!"))
+async def login(user: UserLogin):
+    try:
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
+        payload = {"email": user.email, "password": user.password, "returnSecureToken": True}
+        
+        print(f"🔑 Giriş denemesi - Email: {user.email}")
+        response = requests.post(url, json=payload)
+        data = response.json()
+        
+        if "idToken" in data:
+            print(f"✅ Giriş başarılı - Email: {user.email}")
+            return {
+                "message": "Giriş başarılı!",
+                "idToken": data["idToken"],
+                "uid": data["localId"]
+            }
+        else:
+            print(f"❌ Giriş başarısız - Email: {user.email}")
+            raise HTTPException(
+                status_code=400,
+                detail=data.get("error", {}).get("message", "Bilinmeyen hata!")
+            )
+            
+    except Exception as e:
+        print(f"❌ Giriş hatası: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 # 🔹 Token doğrulama
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
-    print(f"Gelen token: {token[:20]}...")  # Token'ın ilk 20 karakterini göster
+    print(f"🔑 Token doğrulama başladı - Token: {token[:20]}...")  # Token'ın ilk 20 karakterini göster
     
     try:
         # Token'ı doğrula
         decoded_token = auth.verify_id_token(token)
-        print(f"Token doğrulandı. User ID: {decoded_token.get('uid')}")
+        user_id = decoded_token.get("uid")
         
-        user_id = decoded_token["uid"]
+        if not user_id:
+            print("❌ Token'dan uid alınamadı")
+            raise HTTPException(status_code=401, detail="Geçersiz token: uid bulunamadı")
+            
+        print(f"✅ Token doğrulandı - User ID: {user_id}")
         
         # Realtime Database'den kullanıcı bilgilerini al
         user_data = db.reference(f"users/{user_id}").get()
-        print(f"Kullanıcı verileri: {user_data}")
+        print(f"📦 Firebase'den gelen kullanıcı verileri: {user_data}")
         
-        if user_data:
-            role = user_data.get("role", "user")
-            return user_data, role
-        else:
-            print(f"Kullanıcı bulunamadı: {user_id}")
+        if not user_data:
+            print(f"❌ Kullanıcı bulunamadı: {user_id}")
             raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı")
+            
+        # uid'yi user_data içine ekle
+        user_data["uid"] = user_id
+        role = user_data.get("role", "user")
+        
+        print(f"✅ Kullanıcı bilgileri hazırlandı - Role: {role}")
+        return user_data, role
+        
+    except auth.InvalidIdTokenError:
+        print("❌ Geçersiz token hatası")
+        raise HTTPException(status_code=401, detail="Geçersiz token")
+    except auth.ExpiredIdTokenError:
+        print("❌ Token süresi dolmuş")
+        raise HTTPException(status_code=401, detail="Token süresi dolmuş")
+    except auth.RevokedIdTokenError:
+        print("❌ Token iptal edilmiş")
+        raise HTTPException(status_code=401, detail="Token iptal edilmiş")
     except Exception as e:
-        print(f"Token doğrulama hatası: {str(e)}")
-        if "Token expired" in str(e):
-            raise HTTPException(status_code=401, detail="Token süresi dolmuş")
-        elif "Invalid token" in str(e):
-            raise HTTPException(status_code=401, detail="Geçersiz token")
-        else:
-            raise HTTPException(status_code=401, detail=f"Yetkilendirme başarısız: {str(e)}")
+        print(f"❌ Beklenmeyen hata: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Yetkilendirme başarısız: {str(e)}")
 
 # 🔹 Kullanıcı bilgilerini getirme
 @router.get("/me", summary="Kullanıcı Bilgilerini Getir")
@@ -184,3 +220,127 @@ def delete_address(user_id: str, address_id: str):
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Adres silinemedi: {str(e)}")
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        token = credentials.credentials
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Geçersiz token")
+
+@router.post("/users/register")
+async def register_user(user: User):
+    try:
+        # Önce kullanıcının var olup olmadığını kontrol et
+        existing_user = await get_user_by_email(user.email)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Bu email zaten kayıtlı")
+        
+        # Kullanıcıyı MongoDB'ye kaydet
+        user_id = await create_user(user.dict())
+        return {"message": "Kullanıcı başarıyla oluşturuldu", "user_id": str(user_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kullanıcı kaydı başarısız: {str(e)}")
+
+@router.post("/users/{email}/addresses")
+async def create_address(email: str, address: Address, current_user: dict = Depends(get_current_user)):
+    try:
+        # Kullanıcı kontrolü
+        if current_user["email"] != email:
+            raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+        
+        # Kullanıcının MongoDB'de var olup olmadığını kontrol et
+        user = await get_user_by_email(email)
+        if not user:
+            # Kullanıcı yoksa otomatik oluştur
+            new_user = User(
+                email=email,
+                name=current_user.get("name", ""),
+                surname=current_user.get("surname", ""),
+                phone=current_user.get("phone", ""),
+                role="user"
+            )
+            await create_user(new_user.dict())
+        
+        # Adresi ekle
+        success = await add_address(email, address)
+        if not success:
+            raise HTTPException(status_code=500, detail="Adres eklenemedi")
+        return {"message": "Adres başarıyla eklendi"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"İşlem başarısız: {str(e)}")
+
+@router.get("/users/{email}/addresses")
+async def list_addresses(email: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # Kullanıcı kontrolü
+        if current_user["email"] != email:
+            raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+        
+        # Kullanıcının MongoDB'de var olup olmadığını kontrol et
+        user = await get_user_by_email(email)
+        if not user:
+            return []  # Kullanıcı yoksa boş liste dön
+        
+        addresses = await get_addresses(email)
+        return addresses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"İşlem başarısız: {str(e)}")
+
+@router.post("/users/{user_id}/stock")
+def add_stock(user_id: str, stock_item: StockItem, current_user: dict = Depends(get_current_user)):
+    if current_user["uid"] != user_id:
+        raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+    try:
+        # Firebase Realtime Database'e ekle
+        ref = db.reference(f"users/{user_id}/stock_items")
+        # Ürün ID'si ile kaydet (aynı ürün tekrar eklenirse üzerine yazar)
+        ref.child(stock_item.product_id).set(stock_item.dict())
+        return {"message": "Stok başarıyla eklendi (Firebase)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stok eklenemedi: {str(e)}")
+
+@router.get("/users/{user_id}/stock")
+def list_stock(user_id: str, current_user: dict = Depends(get_current_user)):
+    print(f"Stok isteği - User ID: {user_id}") # Debug için
+    print(f"Current User: {current_user}") # Debug için
+    
+    if current_user["uid"] != user_id:
+        print("Yetki hatası - Kullanıcı ID'leri eşleşmiyor") # Debug için
+        raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+    try:
+        ref = db.reference(f"users/{user_id}/stock_items")
+        data = ref.get()
+        print(f"Firebase'den gelen veri: {data}") # Debug için
+        
+        if not data:
+            print("Firebase'den veri gelmedi") # Debug için
+            return []
+        return [{"product_id": k, **v} for k, v in data.items()]
+    except Exception as e:
+        print(f"Stok getirme hatası: {str(e)}") # Debug için
+        raise HTTPException(status_code=500, detail=f"Stoklar alınamadı: {str(e)}")
+
+@router.put("/users/{user_id}/stock/{product_id}")
+def update_stock(user_id: str, product_id: str, quantity: int, current_user: dict = Depends(get_current_user)):
+    if current_user["uid"] != user_id:
+        raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+    try:
+        ref = db.reference(f"users/{user_id}/stock_items/{product_id}")
+        ref.update({"quantity": quantity})
+        return {"message": "Stok başarıyla güncellendi (Firebase)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stok güncellenemedi: {str(e)}")
+
+@router.delete("/users/{user_id}/stock/{product_id}")
+def delete_stock(user_id: str, product_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["uid"] != user_id:
+        raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
+    try:
+        # Firebase Realtime Database'den sil
+        ref = db.reference(f"users/{user_id}/stock_items/{product_id}")
+        ref.delete()
+        return {"message": "Stok başarıyla silindi (Firebase)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stok silinemedi: {str(e)}")

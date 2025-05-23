@@ -1,0 +1,91 @@
+.recipe-section {
+  margin: 2rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.recipe-section h2 {
+  color: #343a40;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.button-grid button {
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #007bff;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.button-grid button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.button-grid button:active {
+  transform: translateY(0);
+}
+
+.button-grid button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Loading durumu için stil */
+.loading {
+  text-align: center;
+  padding: 2rem;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Hata mesajı için stil */
+.error-message {
+  color: #dc3545;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 8px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+/* Sonuç gösterimi için stil */
+.result-container {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #e9ecef;
+  white-space: pre-wrap;
+  line-height: 1.6;
+} 

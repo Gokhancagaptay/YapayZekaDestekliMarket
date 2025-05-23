@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # 📌 Kullanıcı ve ürün API'lerini buraya ekliyoruz
-app.include_router(user_router, prefix="/auth", tags=["Kullanıcı İşlemleri"])
+app.include_router(user_router, prefix="/api/auth", tags=["Kullanıcı İşlemleri"])
 app.include_router(product_router, prefix="/products", tags=["Ürün İşlemleri"])
 app.include_router(recipe_router, prefix="/recipes", tags=["Tarif Önerisi"])
 

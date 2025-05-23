@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddressListScreen extends StatefulWidget {
   final bool inPanel;
@@ -14,45 +15,122 @@ class AddressListScreen extends StatefulWidget {
 class _AddressListScreenState extends State<AddressListScreen> {
   List<Map<String, dynamic>> addresses = [];
   bool isLoading = true;
-  final String userId = 'test_user_id'; // TODO: Gerçek kullanıcı id'si ile değiştir
+  String userUid = '';
+  String? token;
 
   @override
   void initState() {
     super.initState();
-    _fetchAddresses();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    await _getUserUid();
+    await _getToken();
+    await _fetchAddresses();
+  }
+
+  Future<void> _getToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        token = prefs.getString('token');
+      });
+      print('Token alındı: ${token?.substring(0, 10)}...');
+    } catch (e) {
+      print('Token alma hatası: $e');
+    }
+  }
+
+  Future<void> _getUserUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userUid = prefs.getString('uid') ?? '';
+    });
+    print('UID alındı: $userUid');
   }
 
   Future<void> _fetchAddresses() async {
+    if (token == null) {
+      print('Token bulunamadı!');
+      return;
+    }
+
     setState(() { isLoading = true; });
     try {
-      final result = await fetchAddressesFromApi(userId);
+      final result = await fetchAddressesFromApi(userUid);
       setState(() {
         addresses = result;
         isLoading = false;
       });
     } catch (e) {
+      print('Adres getirme hatası: $e');
       setState(() { isLoading = false; });
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchAddressesFromApi(String userId) async {
-    final response = await http.get(Uri.parse('http://localhost:8000/users/$userId/addresses'));
+  String getBaseUrl() {
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    } else {
+      return 'http://10.0.2.2:8000'; // Android emülatör için
+      // Gerçek cihazda test için: bilgisayarının IP adresini yazabilirsin
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAddressesFromApi(String uid) async {
+    if (token == null) throw Exception('Token bulunamadı');
+    final url = '${getBaseUrl()}/api/auth/users/$uid/addresses';
+    print('Adres getirme isteği: $url');
+    print('Token: [32m${token?.substring(0, 10)}...[0m');
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $token'
+      }
+    );
+    print('API Yanıt Kodu: ${response.statusCode}');
+    print('API Yanıtı: ${response.body}');
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.cast<Map<String, dynamic>>();
     } else {
+      print('API Hatası: ${response.body}');
       return [];
     }
   }
 
-  Future<void> addAddressToApi(String userId, Map<String, dynamic> address) async {
+  Future<void> addAddressToApi(String uid, Map<String, dynamic> address) async {
+    if (token == null) throw Exception('Token bulunamadı');
+    final url = '${getBaseUrl()}/api/auth/users/$uid/addresses';
+    print('Adres ekleme isteği: $url');
+    print('Adres verisi: $address');
     final response = await http.post(
-      Uri.parse('http://localhost:8000/users/$userId/addresses'),
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token'
+      },
       body: jsonEncode(address),
     );
+    print('API Yanıt Kodu: ${response.statusCode}');
+    print('API Yanıtı: ${response.body}');
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Adres eklenemedi');
+      throw Exception('Adres eklenemedi: ${response.body}');
+    }
+  }
+
+  Future<void> deleteAddressFromApi(String uid, String addressId) async {
+    if (token == null) throw Exception('Token bulunamadı');
+    final url = '${getBaseUrl()}/api/auth/users/$uid/addresses/$addressId';
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $token'
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Adres silinemedi: ${response.body}');
     }
   }
 
@@ -197,7 +275,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                   'tarif': tarif,
                   'isDefault': isDefault
                 };
-                await addAddressToApi(userId, address);
+                await addAddressToApi(userUid, address);
                 Navigator.pop(context);
                 await _fetchAddresses();
               },
@@ -220,10 +298,18 @@ class _AddressListScreenState extends State<AddressListScreen> {
     });
   }
 
-  void _deleteAddress(int idx) {
-    setState(() {
-      addresses.removeAt(idx);
-    });
+  void _deleteAddress(int idx) async {
+    final addressId = addresses[idx]['id'] ?? addresses[idx]['_id'];
+    try {
+      await deleteAddressFromApi(userUid, addressId);
+      setState(() {
+        addresses.removeAt(idx);
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Adres silinemedi: $e')),
+      );
+    }
   }
 
   void _setDefault(int idx) {
@@ -336,7 +422,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF232323),
         elevation: 0,
-        title: const Text('Adreslerim'),
+        title: const Text('Adreslerim', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(18),

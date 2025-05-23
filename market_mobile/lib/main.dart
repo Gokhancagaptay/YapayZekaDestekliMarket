@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_page.dart' show GirisEkrani;
 import 'screens/product_list.dart';
 import 'screens/register_screen.dart';
@@ -40,7 +42,25 @@ Widget responsiveWrapper({required BuildContext context, required Widget child})
   );
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyCqMqAcS8i-xoGD2_KsJeut0qMLfYngrSA",
+        authDomain: "onlinemarket-12345.firebaseapp.com",
+        projectId: "onlinemarket-12345",
+        storageBucket: "onlinemarket-12345.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef123456789",
+        databaseURL: "https://onlinemarket-12345-default-rtdb.firebaseio.com",
+      ),
+    );
+  } else {
+    await Firebase.initializeApp();
+  }
+  
   runApp(const MyApp());
 }
 
@@ -74,7 +94,7 @@ class _MyAppState extends State<MyApp> {
     final ThemeData mobileTheme = ThemeData.dark().copyWith(
       scaffoldBackgroundColor: const Color(0xFF2E2E2E),
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-      textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Roboto'),
+      textTheme: GoogleFonts.notoSansTextTheme(ThemeData.dark().textTheme),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
@@ -85,7 +105,7 @@ class _MyAppState extends State<MyApp> {
     final ThemeData webTheme = ThemeData.light().copyWith(
       scaffoldBackgroundColor: const Color(0xFFF5F5F5),
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-      textTheme: ThemeData.light().textTheme.apply(fontFamily: 'Roboto'),
+      textTheme: GoogleFonts.notoSansTextTheme(ThemeData.light().textTheme),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.deepOrange,

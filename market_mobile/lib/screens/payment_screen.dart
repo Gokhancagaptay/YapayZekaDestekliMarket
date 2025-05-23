@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../providers/cart_provider.dart';
+import '../services/stock_service.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class PaymentScreen extends StatefulWidget {
   final String address;
@@ -28,6 +34,55 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _invoiceController = TextEditingController();
   String _orderNote = '';
 
+  // Adres yönetimi için
+  List<Map<String, dynamic>> _addresses = [];
+  bool _isAddressLoading = true;
+  String? _selectedAddressId;
+  String? _selectedAddressText;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAddresses();
+  }
+
+  Future<void> _fetchAddresses() async {
+    setState(() { _isAddressLoading = true; });
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString('uid');
+    final token = prefs.getString('token');
+    if (uid == null || token == null) {
+      setState(() { _isAddressLoading = false; });
+      return;
+    }
+    final url = (kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000') + '/api/auth/users/$uid/addresses';
+    try {
+      final response = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        setState(() {
+          _addresses = data.cast<Map<String, dynamic>>();
+          // Varsayılan adresi seçili yap
+          final defaultAddr = _addresses.firstWhere(
+            (a) => a['isDefault'] == true,
+            orElse: () => _addresses.isNotEmpty ? _addresses[0] : <String, dynamic>{},
+          );
+          _selectedAddressId = defaultAddr.isNotEmpty ? defaultAddr['id'] ?? defaultAddr['_id'] : null;
+          _selectedAddressText = defaultAddr.isNotEmpty ? _addressToString(defaultAddr) : null;
+          _isAddressLoading = false;
+        });
+      } else {
+        setState(() { _isAddressLoading = false; });
+      }
+    } catch (e) {
+      setState(() { _isAddressLoading = false; });
+    }
+  }
+
+  String _addressToString(Map<String, dynamic> addr) {
+    return '${addr['title']} - ${addr['mahalle']} ${addr['sokak']} No:${addr['binaNo']} Kat:${addr['kat']} Daire:${addr['daireNo']}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWeb = kIsWeb;
@@ -35,6 +90,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final double cardPadding = isWeb ? 32 : 18;
     final double fontSize = isWeb ? 22 : 18;
     final double buttonHeight = isWeb ? 56 : 48;
+
+    // Sepet verisi
+    final cart = Provider.of<CartProvider>(context);
+    final cartItems = cart.items.values.toList();
+    final totalAmount = cart.totalAmount;
 
     return Scaffold(
       backgroundColor: const Color(0xFF232323),
@@ -67,11 +127,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               children: [
                 Text('Sipariş Özeti', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
-                ...widget.cartItems.map((item) => Row(
+                ...cartItems.map((item) => Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${item['name']} x${item['qty']}', style: TextStyle(color: Colors.white70, fontSize: fontSize-2)),
-                    Text('₺${(item['price'] * item['qty']).toStringAsFixed(2)}', style: TextStyle(color: Colors.white, fontSize: fontSize-2)),
+                    Text('${item.name} x${item.quantity.toStringAsFixed(1)} ${item.unit}', style: TextStyle(color: Colors.white70, fontSize: fontSize-2)),
+                    Text('₺${(item.price * item.quantity).toStringAsFixed(2)}', style: TextStyle(color: Colors.white, fontSize: fontSize-2)),
                   ],
                 )),
                 const Divider(color: Colors.white24, height: 28),
@@ -79,20 +139,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Toplam', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
-                    Text('₺${widget.totalAmount.toStringAsFixed(2)}', style: TextStyle(color: Colors.orange, fontSize: fontSize, fontWeight: FontWeight.bold)),
+                    Text('₺${totalAmount.toStringAsFixed(2)}', style: TextStyle(color: Colors.orange, fontSize: fontSize, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 24),
                 Text('Teslimat Adresi', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF353535),
-                    borderRadius: BorderRadius.circular(18),
+                _isAddressLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : (_addresses.isEmpty
+                    ? const Text('Adres bulunamadı', style: TextStyle(color: Colors.white70))
+                    : DropdownButton<String>(
+                        value: _selectedAddressId,
+                        dropdownColor: const Color(0xFF353535),
+                        isExpanded: true,
+                        iconEnabledColor: Colors.white,
+                        style: TextStyle(color: Colors.white, fontSize: fontSize-2),
+                        items: _addresses.map((addr) {
+                          final id = addr['id'] ?? addr['_id'];
+                          return DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(_addressToString(addr)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedAddressId = val;
+                            final addr = _addresses.firstWhere((a) => (a['id'] ?? a['_id']) == val);
+                            _selectedAddressText = _addressToString(addr);
+                          });
+                        },
+                      )
                   ),
-                  child: Text(widget.address, style: TextStyle(color: Colors.white70, fontSize: fontSize-2)),
-                ),
                 const SizedBox(height: 18),
                 Text('Sipariş Notu (isteğe bağlı)', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
@@ -265,10 +343,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 SizedBox(
                   height: buttonHeight,
                   child: ElevatedButton(
-                    onPressed: (selectedPayment == null || !kvkkOk || !contractOk) ? null : () {
+                    onPressed: (selectedPayment == null || !kvkkOk || !contractOk || _selectedAddressId == null) ? null : () async {
+                      // Stoğa ekleme işlemi
+                      final List<Map<String, dynamic>> stockItems = cartItems.map((item) => {
+                        'id': item.id,
+                        'name': item.name,
+                        'image_url': item.imageUrl,
+                        'qty': item.quantity,
+                        'unit': item.unit,
+                        'category': item.category ?? 'all',
+                        'price': item.price,
+                        'stock': item.stock,
+                      }).toList();
+                      for (final item in stockItems) {
+                        print('Stoğa eklenecek ürün: [36m${item['name']}[0m - kategori: [33m${item['category']}[0m');
+                        await StockService.addOrUpdateStock(item);
+                      }
+                      cart.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Ödeme işlemi (demo)!')),
+                        const SnackBar(content: Text('Satın alma ve stoğa ekleme başarılı!')),
                       );
+                      Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepOrange,

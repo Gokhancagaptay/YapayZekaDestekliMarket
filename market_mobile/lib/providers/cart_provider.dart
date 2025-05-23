@@ -5,18 +5,22 @@ class CartItem {
   final String name;
   final double price;
   final String imageUrl;
-  int quantity;
   final int? stock;
+  final String? unit;
   final String? label;
+  final String category;
+  double quantity;
 
   CartItem({
     required this.id,
     required this.name,
     required this.price,
     required this.imageUrl,
-    this.quantity = 1,
     this.stock,
+    this.unit,
     this.label,
+    this.category = 'all',
+    this.quantity = 1,
   });
 }
 
@@ -39,7 +43,7 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  void addItem(String productId, String name, double price, String imageUrl, {int? stock, String? label}) {
+  void addItem(String productId, String name, double price, String imageUrl, {int? stock, String? unit, String? label, String? category}) {
     if (_items.containsKey(productId)) {
       _items.update(
         productId,
@@ -48,9 +52,11 @@ class CartProvider with ChangeNotifier {
           name: existingCartItem.name,
           price: existingCartItem.price,
           imageUrl: existingCartItem.imageUrl,
-          quantity: existingCartItem.quantity + 1,
           stock: existingCartItem.stock,
+          unit: existingCartItem.unit,
           label: existingCartItem.label,
+          category: existingCartItem.category,
+          quantity: existingCartItem.quantity + 1,
         ),
       );
     } else {
@@ -62,7 +68,9 @@ class CartProvider with ChangeNotifier {
           price: price,
           imageUrl: imageUrl,
           stock: stock,
+          unit: unit ?? 'adet',
           label: label,
+          category: category ?? 'all',
         ),
       );
     }
@@ -86,9 +94,11 @@ class CartProvider with ChangeNotifier {
           name: existingCartItem.name,
           price: existingCartItem.price,
           imageUrl: existingCartItem.imageUrl,
-          quantity: existingCartItem.quantity - 1,
           stock: existingCartItem.stock,
+          unit: existingCartItem.unit,
           label: existingCartItem.label,
+          category: existingCartItem.category,
+          quantity: existingCartItem.quantity - 1,
         ),
       );
     } else {

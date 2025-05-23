@@ -4,6 +4,7 @@ import '../providers/cart_provider.dart';
 import '../services/analysis_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'payment_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -18,7 +19,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
-    int totalItems = cart.items.values.fold(0, (sum, item) => sum + (item.quantity ?? 1));
+    int totalItems = cart.items.values.fold<double>(0, (sum, item) => sum + (item.quantity ?? 1)).toInt();
     return Scaffold(
       backgroundColor: const Color(0xFF232323),
       appBar: AppBar(
@@ -152,7 +153,14 @@ class _CartScreenState extends State<CartScreen> {
                                       cart.removeSingleItem(item.id);
                                     },
                                   ),
-                                  Text('${item.quantity}', style: TextStyle(color: Colors.white, fontSize: 18)),
+                                  Container(
+                                    width: 36,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      item.quantity.toStringAsFixed(1),
+                                      style: TextStyle(color: Colors.white, fontSize: 18),
+                                    ),
+                                  ),
                                   IconButton(
                                     icon: Icon(Icons.add, color: Colors.white),
                                     onPressed: () {
@@ -253,12 +261,14 @@ class _CartScreenState extends State<CartScreen> {
                         String dialogTitle = '';
                         String dialogContent = '';
                         try {
+                          final prefs = await SharedPreferences.getInstance();
+                          final token = prefs.getString('token');
                           if (result == 'suggest') {
                             dialogTitle = 'Yemek Önerisi';
-                            dialogContent = await AnalysisService.suggestRecipe(items);
+                            dialogContent = await AnalysisService.suggestRecipe(items, token: token);
                           } else if (result == 'analyze') {
                             dialogTitle = 'Besin Analizi';
-                            dialogContent = await AnalysisService.analyzeCartItems(items);
+                            dialogContent = await AnalysisService.analyzeCartItems(items, token: token);
                           } else if (result == 'price') {
                             dialogTitle = 'Fiyat Analizi';
                             dialogContent = await AnalysisService.priceAnalysis(items);

@@ -6,7 +6,7 @@ load_dotenv()
 
 # Çevresel değişkenleri yükle
 MONGO_URL = os.getenv("MONGO_URL")
-FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
+FIREBASE_CREDENTIALS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "firebase.json")
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 EMAIL = os.getenv("email")
 PASSWORD = os.getenv("password")
@@ -15,7 +15,6 @@ GEMINI_API_KEY = "AIzaSyCqMqAcS8i-xoGD2_KsJeut0qMLfYngrSA"
 # Gerekli değişkenlerin kontrolü
 required_vars = {
     "MONGO_URL": MONGO_URL,
-    "FIREBASE_CREDENTIALS": FIREBASE_CREDENTIALS,
     "FIREBASE_API_KEY": FIREBASE_API_KEY,
     "EMAIL": EMAIL,
     "PASSWORD": PASSWORD

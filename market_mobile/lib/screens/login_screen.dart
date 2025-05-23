@@ -19,9 +19,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String getApiUrl() {
     if (kIsWeb) {
-      return 'http://localhost:8000/auth/login';
+      return 'http://localhost:8000/api/auth/login';
     } else {
-      return 'http://10.0.2.2:8000/auth/login';
+      return 'http://10.0.2.2:8000/api/auth/login';
     }
   }
 
@@ -41,11 +41,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final data = jsonDecode(response.body);
     if (response.statusCode == 200) {
       final token = data["idToken"];
+      final uid = data["uid"];
       // Token'ı shared_preferences ile sakla (web ve mobilde çalışır)
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('idToken', token);
       await prefs.setString('token', token);
+      await prefs.setString('uid', uid);
+      await prefs.setString('email', emailController.text.trim());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Giriş başarılı!")),

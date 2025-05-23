@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
-import '../services/stock_service.dart';
+import '../services/stock_service.dart' show getBaseUrl, StockService;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/analysis_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class StockScreen extends StatefulWidget {
   final bool inPanel;
@@ -50,6 +55,263 @@ class _StockScreenState extends State<StockScreen> {
   List<Map<String, dynamic>> _filterStockItems(List<Map<String, dynamic>> items) {
     if (selectedCategory == "all") return items;
     return items.where((item) => (item['category'] ?? 'belirsiz') == selectedCategory).toList();
+  }
+
+  Future<void> _handleSnackSuggestion(String label) async {
+    String? snackType;
+    if (label.contains('Tatlı')) snackType = 'sweet';
+    else if (label.contains('Tuzlu')) snackType = 'salty';
+    else if (label.contains('Fırın/Ocaksız')) snackType = 'no_cooking';
+    else if (label.contains('Film/Gece')) snackType = 'movie_night';
+    else if (label.contains('Diyet Dostu')) snackType = 'diet_friendly';
+    else if (label.contains('5 Dakika')) snackType = 'quick';
+    if (snackType == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final suggestion = await AnalysisService.snackSuggestion(
+        userId: '',
+        snackType: snackType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF232323),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Text(suggestion, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.deepOrange)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _handleShoppingSuggestion(String label) async {
+    String? listType;
+    if (label.contains('Stoğuma Göre Eksikler')) listType = 'basic_needs';
+    else if (label.contains('3 Gün')) listType = 'three_day_plan';
+    else if (label.contains('Kahvaltılık')) listType = 'breakfast_essentials';
+    else if (label.contains('Temel İhtiyaç')) listType = 'essential_items';
+    else if (label.contains('Protein')) listType = 'protein_focused';
+    else if (label.contains('Temiz Beslenme')) listType = 'clean_eating';
+    if (listType == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final suggestion = await AnalysisService.shoppingSuggestion(
+        userId: '',
+        listType: listType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF232323),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Text(suggestion, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.deepOrange)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _handleNutritionAnalysis(String label) async {
+    String? analysisType;
+    if (label.contains('Besin Dengesi')) analysisType = 'balance';
+    else if (label.contains('Karbonhidrat/Protein')) analysisType = 'carb_protein';
+    else if (label.contains('Sebze Ağırlıklı')) analysisType = 'veggie_recipe';
+    else if (label.contains('Düşük Kalorili')) analysisType = 'low_calorie';
+    else if (label.contains('Bağışıklık')) analysisType = 'immune_boost';
+    else if (label.contains('Egzersiz Sonrası')) analysisType = 'post_workout';
+    else if (label.contains('Günlük Kalori')) analysisType = 'calorie_specific';
+    else if (label.contains('Vitamin')) analysisType = 'vitamin_rich';
+    if (analysisType == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final analysis = await AnalysisService.nutritionAnalysis(
+        userId: '',
+        analysisType: analysisType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF232323),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Text(analysis, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.deepOrange)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _handleDinnerSuggestion(String label) async {
+    String? suggestionType;
+    if (label.contains('Pratik (10–15 dk)')) suggestionType = 'quick';
+    else if (label.contains('Ortalama (30–45 dk)')) suggestionType = 'medium';
+    else if (label.contains('Uğraştırıcı (1 saat+)')) suggestionType = 'long';
+    else if (label.contains('Etsiz')) suggestionType = 'vegetarian';
+    else if (label.contains('Sulu yemek')) suggestionType = 'soup';
+    else if (label.contains('Tek tavada')) suggestionType = 'one_pan';
+    if (suggestionType == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final suggestion = await AnalysisService.dinnerSuggestion(
+        userId: '',
+        suggestionType: suggestionType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF232323),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Text(suggestion, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.deepOrange)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _handleBreakfastSuggestion(String label) async {
+    String? recipeType;
+    if (label.contains('Pratik kahvaltı')) recipeType = 'quick';
+    else if (label.contains('Yumurtalı')) recipeType = 'egg';
+    else if (label.contains('Ekmeksiz')) recipeType = 'no_bread';
+    else if (label.contains('Tatlı')) recipeType = 'sweet';
+    else if (label.contains('Hafif')) recipeType = 'light';
+    else if (label.contains('Soğuk')) recipeType = 'cold';
+    if (recipeType == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final suggestion = await AnalysisService.breakfastSuggestion(
+        userId: '',
+        recipeType: recipeType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF232323),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Text(suggestion, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Kapat', style: TextStyle(color: Colors.deepOrange)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hata: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -383,6 +645,7 @@ class _StockScreenState extends State<StockScreen> {
                                 'Sulu yemek öner',
                                 'Tek tavada yemek',
                               ],
+                              onPressed: _handleDinnerSuggestion,
                             ),
                             _HelpExpandable(
                               icon: '☕',
@@ -395,44 +658,48 @@ class _StockScreenState extends State<StockScreen> {
                                 'Hafif kahvaltı öner',
                                 'Soğuk kahvaltı önerisi (yaz için)',
                               ],
+                              onPressed: _handleBreakfastSuggestion,
                             ),
                             _HelpExpandable(
                               icon: '🍿',
                               label: 'Atıştırmalık Fikirleri',
                               children: [
-                                'Tatlı atıştırmalık',
-                                'Tuzlu atıştırmalık',
-                                'Fırın/ocaksız tarif',
-                                'Film/gece atıştırması',
-                                'Diyet dostu atıştırmalık',
-                                '5 dakikada hazırlanabilen',
+                                'Tatlı Atıştırmalık',
+                                'Tuzlu Atıştırmalık',
+                                'Fırın/Ocaksız Tarif',
+                                'Film/Gece Atıştırması',
+                                'Diyet Dostu Atıştırmalık',
+                                '5 Dakikada Hazırlanabilen',
                               ],
+                              onPressed: _handleSnackSuggestion,
                             ),
                             _HelpExpandable(
                               icon: '🛒',
                               label: 'Alışveriş Listesi Tavsiyesi',
                               children: [
-                                'Stoğuma göre eksikler neler?',
-                                '3 gün yetecek alışveriş planı',
-                                'Kahvaltılık eksiklerim',
-                                'Temel ihtiyaç listesi',
-                                'Protein ağırlıklı alışveriş',
-                                'Haftalık "temiz beslenme" listesi',
+                                'Stoğuma Göre Eksikler',
+                                '3 Gün Yetecek Plan',
+                                'Kahvaltılık Eksikler',
+                                'Temel İhtiyaç Listesi',
+                                'Protein Ağırlıklı Alışveriş',
+                                'Haftalık "Temiz Beslenme" Listesi',
                               ],
+                              onPressed: _handleShoppingSuggestion,
                             ),
                             _HelpExpandable(
                               icon: '🩺',
                               label: 'Stoğuma Göre Kişisel Sağlık',
                               children: [
-                                'Stoğumun besin dengesi nasıl?',
-                                'Karbonhidrat/protein oranı',
-                                'Sebze ağırlıklı tarif öner',
-                                'Düşük kalorili tarif öner',
-                                'Bağışıklık güçlendirici öneri',
-                                'Egzersiz sonrası yemek önerisi',
-                                'Günlük kaloriye uygun tarif',
-                                'Vitamin yönünden zengin içerik önerisi',
+                                'Stoğumun Besin Dengesi',
+                                'Karbonhidrat/Protein Oranı',
+                                'Sebze Ağırlıklı Tarif',
+                                'Düşük Kalorili Tarif',
+                                'Bağışıklık Güçlendirici',
+                                'Egzersiz Sonrası Yemek',
+                                'Günlük Kaloriye Uygun',
+                                'Vitamin Açısından Zengin',
                               ],
+                              onPressed: _handleNutritionAnalysis,
                             ),
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -519,6 +786,7 @@ class _StockScreenState extends State<StockScreen> {
                               'Sulu yemek öner',
                               'Tek tavada yemek',
                             ],
+                            onPressed: _handleDinnerSuggestion,
                           ),
                           _HelpExpandable(
                             icon: '☕',
@@ -531,44 +799,48 @@ class _StockScreenState extends State<StockScreen> {
                               'Hafif kahvaltı öner',
                               'Soğuk kahvaltı önerisi (yaz için)',
                             ],
+                            onPressed: _handleBreakfastSuggestion,
                           ),
                           _HelpExpandable(
                             icon: '🍿',
                             label: 'Atıştırmalık Fikirleri',
                             children: [
-                              'Tatlı atıştırmalık',
-                              'Tuzlu atıştırmalık',
-                              'Fırın/ocaksız tarif',
-                              'Film/gece atıştırması',
-                              'Diyet dostu atıştırmalık',
-                              '5 dakikada hazırlanabilen',
+                              'Tatlı Atıştırmalık',
+                              'Tuzlu Atıştırmalık',
+                              'Fırın/Ocaksız Tarif',
+                              'Film/Gece Atıştırması',
+                              'Diyet Dostu Atıştırmalık',
+                              '5 Dakikada Hazırlanabilen',
                             ],
+                            onPressed: _handleSnackSuggestion,
                           ),
                           _HelpExpandable(
                             icon: '🛒',
                             label: 'Alışveriş Listesi Tavsiyesi',
                             children: [
-                              'Stoğuma göre eksikler neler?',
-                              '3 gün yetecek alışveriş planı',
-                              'Kahvaltılık eksiklerim',
-                              'Temel ihtiyaç listesi',
-                              'Protein ağırlıklı alışveriş',
-                              'Haftalık "temiz beslenme" listesi',
+                              'Stoğuma Göre Eksikler',
+                              '3 Gün Yetecek Plan',
+                              'Kahvaltılık Eksikler',
+                              'Temel İhtiyaç Listesi',
+                              'Protein Ağırlıklı Alışveriş',
+                              'Haftalık "Temiz Beslenme" Listesi',
                             ],
+                            onPressed: _handleShoppingSuggestion,
                           ),
                           _HelpExpandable(
                             icon: '🩺',
                             label: 'Stoğuma Göre Kişisel Sağlık',
                             children: [
-                              'Stoğumun besin dengesi nasıl?',
-                              'Karbonhidrat/protein oranı',
-                              'Sebze ağırlıklı tarif öner',
-                              'Düşük kalorili tarif öner',
-                              'Bağışıklık güçlendirici öneri',
-                              'Egzersiz sonrası yemek önerisi',
-                              'Günlük kaloriye uygun tarif',
-                              'Vitamin yönünden zengin içerik önerisi',
+                              'Stoğumun Besin Dengesi',
+                              'Karbonhidrat/Protein Oranı',
+                              'Sebze Ağırlıklı Tarif',
+                              'Düşük Kalorili Tarif',
+                              'Bağışıklık Güçlendirici',
+                              'Egzersiz Sonrası Yemek',
+                              'Günlük Kaloriye Uygun',
+                              'Vitamin Açısından Zengin',
                             ],
+                            onPressed: _handleNutritionAnalysis,
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -614,12 +886,14 @@ class _HelpExpandable extends StatefulWidget {
   final String icon;
   final String label;
   final List<String> children;
-  const _HelpExpandable({required this.icon, required this.label, required this.children});
+  final Function(String) onPressed;
+  const _HelpExpandable({required this.icon, required this.label, required this.children, required this.onPressed});
   @override
   State<_HelpExpandable> createState() => _HelpExpandableState();
 }
 class _HelpExpandableState extends State<_HelpExpandable> {
   bool expanded = false;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -650,7 +924,9 @@ class _HelpExpandableState extends State<_HelpExpandable> {
                     textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
                     elevation: 0,
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    widget.onPressed(child);
+                  },
                   child: Align(alignment: Alignment.centerLeft, child: Text(child)),
                 ),
               )),

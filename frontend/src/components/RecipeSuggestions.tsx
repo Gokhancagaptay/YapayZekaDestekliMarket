@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Typography, Card, CardContent, CardActions, Button, Grid, CircularProgress } from '@mui/material'
+import { Box, Typography, Card, CardContent, CardActions, Button, Grid, CircularProgress, Select, MenuItem, FormControl, InputLabel } from '@mui/material'
 import { useQuery } from 'react-query'
 import axios from 'axios'
 
@@ -24,6 +24,11 @@ interface Recipe {
 
 export default function RecipeSuggestions() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
+  const [breakfastType, setBreakfastType] = useState<string>('quick')
+  const [dinnerType, setDinnerType] = useState<string>('quick')
+  const [breakfastSuggestion, setBreakfastSuggestion] = useState<string>('')
+  const [dinnerSuggestion, setDinnerSuggestion] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
 
   const { data: recipes, isLoading, error } = useQuery('recipes', async () => {
     const response = await axios.get('/api/recipes/suggest')
@@ -36,6 +41,34 @@ export default function RecipeSuggestions() {
       setSelectedRecipe(response.data)
     } catch (error) {
       console.error('Error adjusting servings:', error)
+    }
+  }
+
+  const handleBreakfastSuggestion = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.post('/api/recipes/breakfast-suggest', {
+        recipe_type: breakfastType
+      })
+      setBreakfastSuggestion(response.data.suggestion)
+    } catch (error) {
+      console.error('Error getting breakfast suggestion:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDinnerSuggestion = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.post('/api/recipes/dinner-suggest', {
+        suggestion_type: dinnerType
+      })
+      setDinnerSuggestion(response.data.suggestion)
+    } catch (error) {
+      console.error('Error getting dinner suggestion:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -58,8 +91,80 @@ export default function RecipeSuggestions() {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Suggested Recipes
+        Tarif Önerileri
       </Typography>
+
+      {/* Kahvaltı Önerisi */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Kahvaltı Önerisi
+        </Typography>
+        <FormControl sx={{ minWidth: 200, mb: 2 }}>
+          <InputLabel>Kahvaltı Tipi</InputLabel>
+          <Select
+            value={breakfastType}
+            label="Kahvaltı Tipi"
+            onChange={(e) => setBreakfastType(e.target.value)}
+          >
+            <MenuItem value="quick">Hızlı</MenuItem>
+            <MenuItem value="eggy">Yumurtalı</MenuItem>
+            <MenuItem value="breadless">Ekmeksiz</MenuItem>
+            <MenuItem value="sweet">Tatlı</MenuItem>
+            <MenuItem value="light">Hafif</MenuItem>
+            <MenuItem value="cold">Soğuk</MenuItem>
+          </Select>
+        </FormControl>
+        <Button 
+          variant="contained" 
+          onClick={handleBreakfastSuggestion}
+          disabled={loading}
+          sx={{ ml: 2 }}
+        >
+          Kahvaltı Önerisi Al
+        </Button>
+        {breakfastSuggestion && (
+          <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>
+            {breakfastSuggestion}
+          </Typography>
+        )}
+      </Box>
+
+      {/* Akşam Yemeği Önerisi */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Akşam Yemeği Önerisi
+        </Typography>
+        <FormControl sx={{ minWidth: 200, mb: 2 }}>
+          <InputLabel>Yemek Tipi</InputLabel>
+          <Select
+            value={dinnerType}
+            label="Yemek Tipi"
+            onChange={(e) => setDinnerType(e.target.value)}
+          >
+            <MenuItem value="quick">Hızlı</MenuItem>
+            <MenuItem value="medium">Orta Süreli</MenuItem>
+            <MenuItem value="long">Uzun Süreli</MenuItem>
+            <MenuItem value="meatless">Etsiz</MenuItem>
+            <MenuItem value="soupy">Çorbalı</MenuItem>
+            <MenuItem value="onepan">Tek Tencere</MenuItem>
+          </Select>
+        </FormControl>
+        <Button 
+          variant="contained" 
+          onClick={handleDinnerSuggestion}
+          disabled={loading}
+          sx={{ ml: 2 }}
+        >
+          Akşam Yemeği Önerisi Al
+        </Button>
+        {dinnerSuggestion && (
+          <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>
+            {dinnerSuggestion}
+          </Typography>
+        )}
+      </Box>
+
+      {/* Mevcut tarif önerileri */}
       <Grid container spacing={2}>
         {recipes?.map((recipe: Recipe) => (
           <Grid item xs={12} sm={6} key={recipe.id}>

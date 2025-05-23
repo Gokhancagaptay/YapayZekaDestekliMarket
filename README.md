@@ -49,7 +49,7 @@ An AI-powered online market assistant that helps users manage their shopping, tr
 
 ## Getting Started
 
-### Prerequisites
+### Prerequisitesy
 - Node.js (v16+)
 - Python (v3.8+)
 - MongoDB

@@ -19,9 +19,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 String getRegisterUrl() {
   if (kIsWeb) {
-    return 'http://localhost:8000/auth/register';
+    return 'http://localhost:8000/api/auth/register';
   } else {
-    return 'http://10.0.2.2:8000/auth/register';
+    return 'http://10.0.2.2:8000/api/auth/register';
   }
 }
 

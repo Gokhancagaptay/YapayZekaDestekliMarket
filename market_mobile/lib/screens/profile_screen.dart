@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'address_list_screen.dart';
+import 'stock_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool inPanel;
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final menuItems = [
       {'icon': Icons.person, 'title': 'Hesabım'},
       {'icon': Icons.shopping_bag, 'title': 'Siparişlerim'},
-      {'icon': Icons.favorite, 'title': 'Favoriler'},
+      {'icon': Icons.inventory, 'title': 'Stoğum'},
       {'icon': Icons.location_on, 'title': 'Adreslerim'},
     ];
 
@@ -260,6 +261,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(builder: (_) => const AddressListScreen()),
               );
             }
+          } else if (title == 'Stoğum') {
+            if (kIsWeb) {
+              // Web: yan panelde aç
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: "Kapat",
+                transitionDuration: const Duration(milliseconds: 300),
+                pageBuilder: (context, anim1, anim2) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: StockScreen(inPanel: true),
+                    ),
+                  );
+                },
+                transitionBuilder: (context, anim1, anim2, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+                    child: child,
+                  );
+                },
+              );
+            } else {
+              // Mobil: tam ekran aç
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => StockScreen()),
+              );
+            }
           }
         },
       ),
@@ -268,9 +303,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String getProfileUrl() {
     if (kIsWeb) {
-      return 'http://localhost:8000/auth/me';
+      return 'http://localhost:8000/api/auth/me';
     } else {
-      return 'http://10.0.2.2:8000/auth/me';
+      return 'http://10.0.2.2:8000/api/auth/me';
     }
   }
 }

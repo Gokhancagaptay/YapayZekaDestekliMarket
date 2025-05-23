@@ -19,6 +19,9 @@ class ProductCard extends StatelessWidget {
   final String name;
   final double price;
   final int stock;
+  final String? unit;
+  final String? label;
+  final String category;
 
   const ProductCard({
     super.key,
@@ -27,6 +30,9 @@ class ProductCard extends StatelessWidget {
     required this.name,
     required this.price,
     required this.stock,
+    this.unit = 'adet',
+    this.label,
+    this.category = 'all',
   });
 
   @override
@@ -112,7 +118,8 @@ class ProductCard extends StatelessWidget {
                               );
                             } else {
                               Provider.of<CartProvider>(context, listen: false)
-                                  .addItem(id, name, price, imageUrl, stock: stock);
+                                  .addItem(id, name, price, imageUrl, stock: stock, unit: unit, label: label, category: category);
+                              print('Sepete eklenen ürün kategorisi: ${category}');
                             }
                           },
                         ),
