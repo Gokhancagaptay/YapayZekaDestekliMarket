@@ -14,6 +14,7 @@ from api.user import router as user_router
 from api.recipe import router as recipe_router
 from api.product import router as product_router
 from api.snack import router as snack_router
+from api.admin import router as admin_router
 
 # Load environment variables
 load_dotenv()
@@ -55,6 +56,7 @@ app.include_router(user_router, prefix="/api/auth", tags=["auth"])
 app.include_router(product_router, prefix="/api/products", tags=["products"])
 app.include_router(recipe_router, prefix="/api/recipes", tags=["recipes"])
 app.include_router(snack_router, prefix="/api/snacks", tags=["snacks"])
+app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 
 # Debug için router eklendikten sonra tüm rotaları yazdır
 print("\n🔍 Router'lar eklendikten sonraki rotalar:")

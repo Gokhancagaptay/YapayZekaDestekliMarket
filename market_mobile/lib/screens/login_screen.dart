@@ -42,19 +42,27 @@ class _LoginScreenState extends State<LoginScreen> {
     if (response.statusCode == 200) {
       final token = data["idToken"];
       final uid = data["uid"];
-      // Token'ı shared_preferences ile sakla (web ve mobilde çalışır)
+      final userRole = data["role"] ?? "user"; // Backend'den rol bilgisini al, yoksa varsayılan 'user'
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('idToken', token);
-      await prefs.setString('token', token);
+      await prefs.setString('token', token); // AuthService bunu kullanıyor
+      await prefs.setString('idToken', token); // Eski uyumluluk için kalabilir
       await prefs.setString('uid', uid);
       await prefs.setString('email', emailController.text.trim());
+      await prefs.setString('userRole', userRole); // Kullanıcı rolünü kaydet
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Giriş başarılı!")),
+        SnackBar(content: Text("Giriş başarılı! Rol: $userRole")),
       );
-      // Ana sayfaya yönlendir
-      Navigator.pushReplacementNamed(context, "/products");
+      
+      // Role göre yönlendir
+      if (userRole == 'admin') {
+        Navigator.pushReplacementNamed(context, "/admin");
+      } else {
+        Navigator.pushReplacementNamed(context, "/products");
+      }
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

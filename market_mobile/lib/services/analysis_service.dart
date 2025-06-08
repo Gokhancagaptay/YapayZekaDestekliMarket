@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:market_mobile/services/stock_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 
 class AnalysisService {
   static Future<String> suggestRecipe(List<String> ingredients, {String? token}) async {
@@ -17,7 +18,7 @@ class AnalysisService {
         if (token != null) 'Authorization': 'Bearer $token',
       };
       final response = await http.post(
-        Uri.parse('${getBaseUrl()}/recipes/suggest'),
+        Uri.parse('${getBaseUrl()}/api/recipes/suggest'),
         headers: headers,
         body: jsonEncode({'ingredients': ingredients.join(',')}),
       );
@@ -43,7 +44,7 @@ class AnalysisService {
         if (token != null) 'Authorization': 'Bearer $token',
       };
       final response = await http.post(
-        Uri.parse('${getBaseUrl()}/recipes/analyze'),
+        Uri.parse('${getBaseUrl()}/api/recipes/analyze'),
         headers: headers,
         body: jsonEncode({'ingredients': ingredients}),
       );
@@ -61,7 +62,7 @@ class AnalysisService {
   static Future<String> priceAnalysis(List<String> ingredients) async {
     try {
       final response = await http.post(
-        Uri.parse('${getBaseUrl()}/recipes/price'),
+        Uri.parse('${getBaseUrl()}/api/recipes/price'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'ingredients': ingredients}),
       );
@@ -78,8 +79,9 @@ class AnalysisService {
 
   static Future<String> customQuestion(List<String> ingredients, String question) async {
     try {
+      print('customQuestion çağrıldı. İçerikler: ${ingredients.join(',')}, Soru: $question');
       final response = await http.post(
-        Uri.parse('${getBaseUrl()}/recipes/custom'),
+        Uri.parse('${getBaseUrl()}/api/recipes/custom'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'ingredients': ingredients,
@@ -87,13 +89,17 @@ class AnalysisService {
         }),
       );
 
+      print('Sunucu yanıtı (customQuestion): ${response.statusCode}');
+      print('Yanıt içeriği (customQuestion): ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['answer'] ?? 'Soru yanıtlanamadı.';
+        return data['answer'] ?? 'Özelleştirilmiş soruya cevap alınamadı.';
       }
-      throw Exception('Soru yanıtlanamadı: ${response.statusCode}');
+      throw Exception('Özelleştirilmiş soru yanıtlanamadı: ${response.statusCode} - ${response.body}');
     } catch (e) {
-      return 'Soru yanıtlanırken bir hata oluştu: $e';
+      print('Hata detayı (customQuestion): $e');
+      return 'Özelleştirilmiş soru işlenirken bir hata oluştu: $e';
     }
   }
 

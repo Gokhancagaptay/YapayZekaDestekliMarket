@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Query, Path, Body
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Dict, Any
 from pymongo import MongoClient
+from bson import ObjectId
 from fastapi.security import HTTPBearer
 from core.settings import MONGO_URL
 from api.user import verify_token
@@ -11,95 +13,171 @@ security = HTTPBearer()
 # 📌 MongoDB Bağlantısı
 client = MongoClient(MONGO_URL)
 db = client["online_market"]
-collection = db["products"]
-collection.create_index([("name", 1)], unique=True)
+products_collection = db["products"]
+products_collection.create_index([("name", 1)], unique=True)
+
+# 📌 Ürün ID'sinin geçerli bir ObjectId olup olmadığını kontrol etmek için yardımcı fonksiyon
+def validate_object_id(id_string: str) -> ObjectId:
+    try:
+        return ObjectId(id_string)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz Ürün ID formatı")
 
 # 📌 Ürün Modeli
-class Product(BaseModel):
-    name: str
-    price: float
-    stock: int
+class ProductBase(BaseModel):
+    name: str = Field(..., min_length=1)
+    price: float = Field(..., gt=0)
+    stock: int = Field(..., ge=0)
     image_url: str
-    category: str  
+    category: str = Field(..., min_length=1)
+
+class ProductCreate(ProductBase):
+    pass
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    price: Optional[float] = Field(None, gt=0)
+    stock: Optional[int] = Field(None, ge=0)
+    image_url: Optional[str] = None
+    category: Optional[str] = Field(None, min_length=1)
+
+class ProductResponse(ProductBase):
+    id: str = Field(alias="_id")
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            ObjectId: str
+        }
+
+    @validator('id', pre=True, allow_reuse=True)
+    def convert_objectid_to_str(cls, value):
+        if isinstance(value, ObjectId):
+            return str(value)
+        return value
+
+# Yardımcı fonksiyon: MongoDB dökümanını ProductResponse modeline çevir
+def map_product_to_response(product: Dict[str, Any]) -> Dict[str, Any]:
+    product["_id"] = str(product["_id"])
+    return product
 
 # 🔹 Ürün ekleme (JWT doğrulama ile)
-@router.post("/add", summary="Ürün Ekle", description="Kullanıcıların yeni bir ürün eklemesine olanak tanır.")
-def add_product(product: Product):
-    user, _ = user_data  # Artık role kontrol etmiyoruz
-    print(f"Ürün ekleyen kullanıcı: {user.get('email')}")  # Sadece bilgilendirme için
-    product_dict = product.dict()
-    collection.insert_one(product_dict)
-    return {"message": f"Ürün başarıyla eklendi! Ekleyen kullanıcı: {user.get('email')}"}
+@router.post("/", summary="Yeni Ürün Ekle (Admin Yetkili)", response_model=ProductResponse)
+async def create_product(product_data: ProductCreate, current_user: dict = Depends(verify_token)):
+    user_info, role = current_user
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Yetkisiz işlem: Sadece adminler ürün ekleyebilir.")
+    
+    product_dict = product_data.model_dump()
+    
+    if products_collection.find_one({"name": product_dict["name"]}):
+        raise HTTPException(status_code=400, detail=f"'{product_dict['name']}' isimli ürün zaten mevcut.")
+    
+    try:
+        result = products_collection.insert_one(product_dict)
+        created_product = products_collection.find_one({"_id": result.inserted_id})
+        if created_product:
+            return ProductResponse(**created_product)
+        raise HTTPException(status_code=500, detail="Ürün oluşturuldu ancak getirilemedi.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ürün eklenirken bir hata oluştu: {str(e)}")
 
 # 🔹 Tüm ürünleri listeleme
-@router.get("/", summary="Tüm Ürünleri Listele")
-def get_all_products():
+@router.get("/", summary="Tüm Ürünleri Listele (Arama ve Filtre ile)", response_model=List[ProductResponse])
+async def list_products(
+    search: Optional[str] = Query(None, description="Ürün adında arama yap"),
+    category: Optional[str] = Query(None, description="Kategoriye göre filtrele")
+):
+    query = {}
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+    if category:
+        query["category"] = category
+    
     try:
-        products = list(collection.find({}, {"_id": 0}))
-        return {"products": products}
+        products_cursor = products_collection.find(query)
+        products_list = [ProductResponse(**p) for p in products_cursor]
+        return products_list
     except Exception as e:
+        print(f"HATA DETAYI (list_products): {e}")
+        from pydantic import ValidationError
+        if isinstance(e, ValidationError):
+            print(f"Pydantic Validation Error details: {e.errors()}")
         raise HTTPException(status_code=500, detail=f"Ürünler listelenirken bir hata oluştu: {str(e)}")
 
-# 🔹 Kategoriye göre ürünleri listeleme
-@router.get("/by-category/{category}", summary="Kategoriye Göre Ürünleri Listele")
-def get_products_by_category(category: str):
+@router.get("/categories", summary="Tüm Ürün Kategorilerini Listele", response_model=List[str])
+async def get_categories():
     try:
-        products = list(collection.find({"category": category}, {"_id": 0}))
-        if not products:
-            return {"message": f"{category} kategorisinde ürün bulunamadı!", "products": []}
-        return {"products": products}
+        categories = products_collection.distinct("category")
+        return categories
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Kategori listelenirken bir hata oluştu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kategoriler alınırken bir hata oluştu: {str(e)}")
 
 # 🔹 Belirli bir ürünü getirme
-@router.get("/by-name/{name}", summary="Belli bir ürün getirme", description="Belli bir ürün sorgusu için")
-def get_product(name: str):
-    product = collection.find_one({"name": name}, {"_id": 0})
+@router.get("/{product_id}", summary="Belirli Bir Ürünü Getir", response_model=ProductResponse)
+async def get_product_by_id(product_id: str = Path(..., description="Getirilecek ürünün ID'si")):
+    db_id = validate_object_id(product_id)
+    product = products_collection.find_one({"_id": db_id})
     if product:
-        return product
-    return {"error": "Ürün bulunamadı!"}
+        return ProductResponse(**product)
+    raise HTTPException(status_code=404, detail=f"'{product_id}' ID'li ürün bulunamadı.")
 
 # 🔹 Ürün güncelleme
-@router.put("/{name}", summary="Ürün Güncelle", description="Admin kullanıcıların mevcut bir ürünü güncellemesine olanak tanır.")
-def update_product(name: str, price: float = None, stock: int = None, user_data=Depends(verify_token)):
-    user, role = user_data
+@router.put("/{product_id}", summary="Ürünü Güncelle (Admin Yetkili)", response_model=ProductResponse)
+async def update_product(
+    product_id: str = Path(..., description="Güncellenecek ürünün ID'si"), 
+    product_update: ProductUpdate = Body(...),
+    current_user: dict = Depends(verify_token)
+):
+    user_info, role = current_user
     if role != "admin":
-        raise HTTPException(status_code=403, detail="Erişim reddedildi: Yalnızca adminler ürün güncelleyebilir.")
+        raise HTTPException(status_code=403, detail="Yetkisiz işlem: Sadece adminler ürün güncelleyebilir.")
     
-    update_data = {}
-    if price is not None:
-        update_data["price"] = price
-    if stock is not None:
-        update_data["stock"] = stock
+    db_id = validate_object_id(product_id)
+    update_data = product_update.model_dump(exclude_unset=True)
 
     if not update_data:
-        raise HTTPException(status_code=400, detail="Güncellenecek veri girilmedi.")
+        raise HTTPException(status_code=400, detail="Güncellenecek veri bulunmuyor.")
+    
+    if "name" in update_data:
+        existing_product_with_name = products_collection.find_one({"name": update_data["name"], "_id": {"$ne": db_id}})
+        if existing_product_with_name:
+            raise HTTPException(status_code=400, detail=f"'{update_data['name']}' isimli başka bir ürün zaten mevcut.")
 
-    result = collection.update_one({"name": name}, {"$set": update_data})
-    if result.matched_count:
-        return {"message": f"{name} güncellendi! Güncelleyen: {user.get('email')}"}
-    return {"error": "Ürün bulunamadı"}
+    result = products_collection.update_one({"_id": db_id}, {"$set": update_data})
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"'{product_id}' ID'li ürün bulunamadı.")
+    
+    updated_product = products_collection.find_one({"_id": db_id})
+    if updated_product:
+        return ProductResponse(**updated_product)
+    raise HTTPException(status_code=500, detail="Ürün güncellendi ancak getirilemedi.")
 
 # 🔹 Ürün silme
-@router.delete("/{name}", summary="Ürün Sil", description="Admin kullanıcıların mevcut bir ürünü silmesine olanak tanır.")
-def delete_product(name: str, user_data=Depends(verify_token)):
-    user, role = user_data
+@router.delete("/{product_id}", summary="Ürünü Sil (Admin Yetkili)")
+async def delete_product(
+    product_id: str = Path(..., description="Silinecek ürünün ID'si"), 
+    current_user: dict = Depends(verify_token)
+):
+    user_info, role = current_user
     if role != "admin":
-        raise HTTPException(status_code=403, detail="Erişim reddedildi: Yalnızca adminler ürün silebilir.")
+        raise HTTPException(status_code=403, detail="Yetkisiz işlem: Sadece adminler ürün silebilir.")
     
-    result = collection.delete_one({"name": name})
-    if result.deleted_count:
-        return {"message": f"{name} silindi! Silen: {user.get('email')}"}
-    return {"error": "Ürün bulunamadı"}
+    db_id = validate_object_id(product_id)
+    result = products_collection.delete_one({"_id": db_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail=f"'{product_id}' ID'li ürün bulunamadı.")
+    
+    return {"message": f"'{product_id}' ID'li ürün başarıyla silindi."}
 
 # 🔹 MongoDB Bağlantı Testi
-@router.get("/test-connection")
-def test_connection():
+@router.get("/test-connection", summary="MongoDB Bağlantı Testi")
+async def test_connection_endpoint():
     try:
-        # Veritabanı bağlantısını test et
         db.command('ping')
-        # Koleksiyondaki ürün sayısını al
-        count = collection.count_documents({})
+        count = products_collection.count_documents({})
         return {
             "status": "success",
             "message": "MongoDB bağlantısı başarılı",

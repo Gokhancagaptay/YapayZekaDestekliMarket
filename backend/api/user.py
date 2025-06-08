@@ -38,6 +38,14 @@ class AddressModel(BaseModel):
     tarif: str
     isDefault: bool = False
 
+class UserUpdate(BaseModel):
+    name: str
+    surname: str
+    phone: str
+    email: str
+    new_password: str = None
+    current_password: str = None
+
 # 🔹 Kullanıcı kayıt işlemi
 @router.post("/register", summary="Kullanıcı Kaydı", description="Yeni bir kullanıcı kaydı oluşturur.")
 def register(user: UserRegister):
@@ -91,21 +99,39 @@ async def login(user: UserLogin):
         
         if "idToken" in data:
             print(f"✅ Giriş başarılı - Email: {user.email}")
+            user_id = data["localId"]
+            
+            # Firebase Realtime Database'den kullanıcı rolünü oku
+            user_role = "user" # Varsayılan rol
+            try:
+                role_snapshot = db.reference(f"users/{user_id}/role").get()
+                if role_snapshot:
+                    user_role = role_snapshot
+                print(f"👤 Kullanıcı rolü Firebase'den okundu: {user_role} (UID: {user_id})")
+            except Exception as e:
+                print(f"⚠️ Firebase'den rol okuma hatası: {str(e)} - Varsayılan rol \'user\' kullanılacak.")
+                # Hata durumunda logla ama devam et, varsayılan rol kullanılsın.
+
             return {
                 "message": "Giriş başarılı!",
                 "idToken": data["idToken"],
-                "uid": data["localId"]
+                "uid": user_id,
+                "role": user_role # Okunan rolü yanıta ekle
             }
         else:
-            print(f"❌ Giriş başarısız - Email: {user.email}")
+            error_message = data.get("error", {}).get("message", "Bilinmeyen giriş hatası!")
+            print(f"❌ Giriş başarısız - Email: {user.email}, Hata: {error_message}")
             raise HTTPException(
                 status_code=400,
-                detail=data.get("error", {}).get("message", "Bilinmeyen hata!")
+                detail=error_message
             )
             
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Ağ hatası (Firebase Authentication): {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Kimlik doğrulama servisine ulaşılamıyor: {str(e)}")
     except Exception as e:
-        print(f"❌ Giriş hatası: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        print(f"❌ Beklenmeyen giriş hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Giriş sırasında beklenmeyen bir hata oluştu: {str(e)}")
 
 # 🔹 Token doğrulama
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -166,6 +192,72 @@ def get_user_info(user_data=Depends(verify_token)):
     except Exception as e:
         print(f"Kullanıcı bilgileri alma hatası: {str(e)}")  # Debug için
         raise HTTPException(status_code=500, detail=f"Kullanıcı bilgileri alınamadı: {str(e)}")
+
+# 🔹 Kullanıcı profil güncelleme
+@router.put("/update", summary="Kullanıcı Profilini Güncelle")
+async def update_profile(user_data: UserUpdate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        token = credentials.credentials
+        decoded_token = auth.verify_id_token(token)
+        user_id = decoded_token.get("uid")
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Kullanıcı kimliği bulunamadı")
+            
+        print(f"👤 Profil güncelleme - User ID: {user_id}")
+        
+        # Firebase'de kullanıcı verileri güncelleme
+        user_ref = db.reference(f"users/{user_id}")
+        
+        # Güncelleme verilerini hazırla
+        update_data = {
+            "name": user_data.name,
+            "surname": user_data.surname,
+            "phone": user_data.phone,
+            "email": user_data.email
+        }
+        
+        # Firebase Authentication'da e-posta güncelleme (eğer değiştiyse)
+        current_user_data = db.reference(f"users/{user_id}").get() or {}
+        if user_data.email != current_user_data.get("email"):
+            try:
+                auth.update_user(user_id, email=user_data.email)
+                print(f"✅ Firebase Auth email güncellendi: {user_data.email}")
+            except Exception as e:
+                print(f"❌ Firebase Auth email güncelleme hatası: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"E-posta güncellenemedi: {str(e)}")
+        
+        # Şifre güncellemesi istendiyse
+        if user_data.current_password and user_data.new_password:
+            try:
+                # Email/password ile yeniden kimlik doğrulama yapmak gerekir
+                # Bu örnek basitleştirilmiş, gerçek uygulamada daha güvenli yöntem kullanılmalı
+                url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
+                payload = {
+                    "email": user_data.email, 
+                    "password": user_data.current_password, 
+                    "returnSecureToken": True
+                }
+                response = requests.post(url, json=payload)
+                
+                if response.status_code != 200:
+                    raise HTTPException(status_code=400, detail="Mevcut şifre yanlış")
+                
+                # Şifre güncelleme
+                auth.update_user(user_id, password=user_data.new_password)
+                print("✅ Şifre başarıyla güncellendi")
+            except Exception as e:
+                print(f"❌ Şifre güncelleme hatası: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Şifre güncellenemedi: {str(e)}")
+        
+        # Realtime Database'de kullanıcı bilgilerini güncelleme
+        user_ref.update(update_data)
+        print(f"✅ Firebase kullanıcı bilgileri güncellendi: {update_data}")
+        
+        return {"message": "Profil başarıyla güncellendi", "user": update_data}
+    except Exception as e:
+        print(f"❌ Profil güncelleme hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Profil güncellenemedi: {str(e)}")
 
 # 🔹 Şifre sıfırlama işlemi
 @router.post("/forgot-password", summary="Şifre Sıfırlama", description="Kullanıcının şifresini sıfırlamak için e-posta gönderir.")
@@ -344,3 +436,8 @@ def delete_stock(user_id: str, product_id: str, current_user: dict = Depends(get
         return {"message": "Stok başarıyla silindi (Firebase)"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stok silinemedi: {str(e)}")
+
+# Duplicate the endpoint to handle both old and new paths
+@router.put("/auth/update", summary="Kullanıcı Profilini Güncelle (Eski Yol)")
+async def update_profile_old_path(user_data: UserUpdate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    return await update_profile(user_data, credentials)

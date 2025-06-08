@@ -95,8 +95,8 @@ def suggest_breakfast_recipe(ingredients: str, recipe_type: str) -> str:
     🍳 [TARİF ADI]
     
     📋 Malzemeler:
-    - Malzeme 1
-    - Malzeme 2
+    - Malzeme 1 (Genel Porsiyon)
+    - Malzeme 2 (Genel Porsiyon)
     ...
     
     👩‍🍳 Hazırlanışı:
@@ -105,9 +105,33 @@ def suggest_breakfast_recipe(ingredients: str, recipe_type: str) -> str:
     ...
     
     ⏱️ Hazırlama Süresi: XX dakika
-    👥 Porsiyon: X kişilik
+    👥 Porsiyon: X kişilik (Tarifte belirtilen genel porsiyon sayısı)
     
     💡 İpucu: [Varsa özel bir ipucu veya öneri]
+
+    ÖNEMLİ EK BİLGİ:
+    Yukarıdaki tarife ek olarak, lütfen tarifte kullanılan ve stokta bulunan temel malzemelerin **1 (bir) kişilik porsiyon için** yaklaşık miktarlarını aşağıdaki JSON formatında, özel etiketler arasına yerleştirerek verin. Bu JSON bloğu, normal tarif metninden sonra gelmelidir.
+    Format:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "MALZEME_ADI_1", "quantity": MİKTAR_SAYISAL_1, "unit": "BİRİM_1" },
+        { "product_name": "MALZEME_ADI_2", "quantity": MİKTAR_SAYISAL_2, "unit": "BİRİM_2" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    
+    Örnek JSON:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "Yumurta", "quantity": 2, "unit": "adet" },
+        { "product_name": "Domates", "quantity": 0.5, "unit": "adet" },
+        { "product_name": "Sucuk", "quantity": 20, "unit": "gram" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    Bu JSON içindeki 'product_name' alanı, stokta bulunan genel ürün adını (örneğin 'Domates', 'Süt', 'Yumurta') yansıtmalıdır. 'quantity' sayısal bir değer olmalı, 'unit' ise 'adet', 'gram', 'ml', 'yemek kaşığı' gibi bir birim olmalıdır.
     """
     
     data = {
@@ -148,8 +172,8 @@ def suggest_dinner_recipe(ingredients, suggestion_type):
     🍳 [TARİF ADI]
     
     📋 Malzemeler:
-    - Malzeme 1
-    - Malzeme 2
+    - Malzeme 1 (Genel Porsiyon)
+    - Malzeme 2 (Genel Porsiyon)
     ...
     
     👩‍🍳 Hazırlanışı:
@@ -158,9 +182,33 @@ def suggest_dinner_recipe(ingredients, suggestion_type):
     ...
     
     ⏱️ Hazırlama Süresi: XX dakika
-    👥 Porsiyon: X kişilik
+    👥 Porsiyon: X kişilik (Tarifte belirtilen genel porsiyon sayısı)
     
     💡 İpucu: [Varsa özel bir ipucu veya öneri]
+
+    ÖNEMLİ EK BİLGİ:
+    Yukarıdaki tarife ek olarak, lütfen tarifte kullanılan ve stokta bulunan temel malzemelerin **1 (bir) kişilik porsiyon için** yaklaşık miktarlarını aşağıdaki JSON formatında, özel etiketler arasına yerleştirerek verin. Bu JSON bloğu, normal tarif metninden sonra gelmelidir.
+    Format:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "MALZEME_ADI_1", "quantity": MİKTAR_SAYISAL_1, "unit": "BİRİM_1" },
+        { "product_name": "MALZEME_ADI_2", "quantity": MİKTAR_SAYISAL_2, "unit": "BİRİM_2" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    
+    Örnek JSON:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "Yumurta", "quantity": 2, "unit": "adet" },
+        { "product_name": "Domates", "quantity": 0.5, "unit": "adet" },
+        { "product_name": "Sucuk", "quantity": 20, "unit": "gram" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    Bu JSON içindeki 'product_name' alanı, stokta bulunan genel ürün adını (örneğin 'Domates', 'Süt', 'Yumurta') yansıtmalıdır. 'quantity' sayısal bir değer olmalı, 'unit' ise 'adet', 'gram', 'ml', 'yemek kaşığı' gibi bir birim olmalıdır.
     """
     
     data = {
@@ -330,8 +378,8 @@ def suggest_lunch_recipe(ingredients: str, recipe_type: str) -> str:
     🍳 [TARİF ADI]
     
     📋 Malzemeler:
-    - Malzeme 1
-    - Malzeme 2
+    - Malzeme 1 (Genel Porsiyon)
+    - Malzeme 2 (Genel Porsiyon)
     ...
     
     👩‍🍳 Hazırlanışı:
@@ -340,9 +388,33 @@ def suggest_lunch_recipe(ingredients: str, recipe_type: str) -> str:
     ...
     
     ⏱️ Hazırlama Süresi: XX dakika
-    👥 Porsiyon: X kişilik
+    👥 Porsiyon: X kişilik (Tarifte belirtilen genel porsiyon sayısı)
     
     💡 İpucu: [Varsa özel bir ipucu veya öneri]
+
+    ÖNEMLİ EK BİLGİ:
+    Yukarıdaki tarife ek olarak, lütfen tarifte kullanılan ve stokta bulunan temel malzemelerin **1 (bir) kişilik porsiyon için** yaklaşık miktarlarını aşağıdaki JSON formatında, özel etiketler arasına yerleştirerek verin. Bu JSON bloğu, normal tarif metninden sonra gelmelidir.
+    Format:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "MALZEME_ADI_1", "quantity": MİKTAR_SAYISAL_1, "unit": "BİRİM_1" },
+        { "product_name": "MALZEME_ADI_2", "quantity": MİKTAR_SAYISAL_2, "unit": "BİRİM_2" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    
+    Örnek JSON:
+    [MALZEMELER_JSON_START]
+    {
+      "ingredients_for_one": [
+        { "product_name": "Yumurta", "quantity": 2, "unit": "adet" },
+        { "product_name": "Domates", "quantity": 0.5, "unit": "adet" },
+        { "product_name": "Sucuk", "quantity": 20, "unit": "gram" }
+      ]
+    }
+    [MALZEMELER_JSON_END]
+    Bu JSON içindeki 'product_name' alanı, stokta bulunan genel ürün adını (örneğin 'Domates', 'Süt', 'Yumurta') yansıtmalıdır. 'quantity' sayısal bir değer olmalı, 'unit' ise 'adet', 'gram', 'ml', 'yemek kaşığı' gibi bir birim olmalıdır.
     """
     
     data = {

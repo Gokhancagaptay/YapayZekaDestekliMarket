@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'address_list_screen.dart';
 import 'stock_screen.dart';
+import 'account_screen.dart';
+import 'order_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool inPanel;
@@ -227,7 +229,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         onTap: () {
-          if (title == 'Adreslerim') {
+          if (title == 'Hesabım') {
+            if (kIsWeb) {
+              // Web: yan panelde aç
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: "Kapat",
+                transitionDuration: const Duration(milliseconds: 300),
+                pageBuilder: (context, anim1, anim2) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: AccountScreen(
+                        inPanel: true, 
+                        userData: userData,
+                        refreshParent: () => fetchUserData(),
+                      ),
+                    ),
+                  );
+                },
+                transitionBuilder: (context, anim1, anim2, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+                    child: child,
+                  );
+                },
+              );
+            } else {
+              // Mobil: tam ekran aç
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AccountScreen(
+                    userData: userData,
+                    refreshParent: () => fetchUserData(),
+                  )
+                ),
+              );
+            }
+          } else if (title == 'Siparişlerim') {
+            if (kIsWeb) {
+              // Web: yan panelde aç
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: "Kapat",
+                transitionDuration: const Duration(milliseconds: 300),
+                pageBuilder: (context, anim1, anim2) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: OrderScreen(),
+                    ),
+                  );
+                },
+                transitionBuilder: (context, anim1, anim2, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+                    child: child,
+                  );
+                },
+              );
+            } else {
+              // Mobil: tam ekran aç
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OrderScreen()),
+              );
+            }
+          } else if (title == 'Adreslerim') {
             if (kIsWeb) {
               // Web: yan panelde aç
               showGeneralDialog(

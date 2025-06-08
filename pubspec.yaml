@@ -1,6 +1,30 @@
+name: market_mobile
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
 dependencies:
   flutter:
     sdk: flutter
   firebase_core: ^2.0.0
   firebase_database: ^10.0.0
-  firebase_auth: ^4.0.0 
+  firebase_auth: ^4.0.0
+  fl_chart: ^1.0.0
+  cupertino_icons: ^1.0.6
+  shared_preferences: ^2.2.3
+  http: ^1.2.1
+  provider: ^6.1.2
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/ 

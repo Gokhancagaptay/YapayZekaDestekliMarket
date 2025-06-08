@@ -31,6 +31,7 @@ class ProductListPage extends StatefulWidget {
 class _ProductListPageState extends State<ProductListPage> {
   List<dynamic> products = [];
   String selectedCategory = "meyve_sebze";
+  String? _token;
 
   final List<Map<String, String>> categories = [
     {"key": "meyve_sebze", "title": "Meyve ve Sebzeler"},
@@ -44,44 +45,89 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   void initState() {
     super.initState();
-    fetchProducts();
+    _loadTokenAndFetchProducts();
   }
 
-Future<void> fetchProducts() async {
-  try {
-    final url = Uri.parse("${getBaseUrl()}/products/by-category/$selectedCategory");
-    print("İstek URL: $url");
-    
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        throw TimeoutException('Bağlantı zaman aşımına uğradı');
-      },
-    );
+  Future<void> _loadTokenAndFetchProducts() async {
+    await _getToken();
+    if (mounted) {
+      fetchProducts();
+    }
+  }
 
-    print("Response Status: ${response.statusCode}");
-    print("Response Body: ${response.body}");
+  Future<void> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _token = prefs.getString('token');
+    });
+    print('ProductListPage Token loaded: $_token');
+  }
 
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      if (json["products"] != null) {
-        setState(() {
-          products = json["products"];
-        });
+  Future<void> fetchProducts() async {
+    if (_token == null) {
+      print("Token bulunamadı, /products/by-category/$selectedCategory isteği için ürünler getirilemiyor.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ürünleri görmek için lütfen giriş yapın.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      final url = Uri.parse("${getBaseUrl()}/products/by-category/$selectedCategory");
+      print("İstek URL: $url");
+      print("Kullanılan Token (products/by-category): Bearer $_token");
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Bağlantı zaman aşımına uğradı');
+        },
+      );
+
+      print("Response Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json["products"] != null) {
+          setState(() {
+            products = json["products"];
+          });
+        } else {
+          print("Ürün verisi bulunamadı");
+          setState(() {
+            products = [];
+          });
+        }
       } else {
-        print("Ürün verisi bulunamadı");
+        print("HATA: ${response.statusCode} - ${response.body}");
         setState(() {
           products = [];
         });
+        // Hata mesajını göster
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ürünler yüklenirken bir hata oluştu: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } else {
-      print("HATA: ${response.statusCode} - ${response.body}");
+    } catch (e) {
+      print("Bağlantı hatası: $e");
       setState(() {
         products = [];
       });
@@ -89,71 +135,56 @@ Future<void> fetchProducts() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ürünler yüklenirken bir hata oluştu: ${response.statusCode}'),
+            content: Text('Bağlantı hatası: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
-  } catch (e) {
-    print("Bağlantı hatası: $e");
-    setState(() {
-      products = [];
-    });
-    // Hata mesajını göster
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Bağlantı hatası: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
-}
 
-void _showSidePanel(BuildContext context, Widget child) {
-  showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: "Kapat",
-    transitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (context, anim1, anim2) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 400,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFF232323),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 24,
-                  offset: Offset(-8, 0),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: child,
+  void _showSidePanel(BuildContext context, Widget child) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Kapat",
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 400,
+              height: double.infinity,
+              decoration: const BoxDecoration(
+                color: Color(0xFF232323),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 24,
+                    offset: Offset(-8, 0),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: child,
+              ),
             ),
           ),
-        ),
-      );
-    },
-    transitionBuilder: (context, anim1, anim2, child) {
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
-        child: child,
-      );
-    },
-  );
-}
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -368,9 +399,14 @@ void _showSidePanel(BuildContext context, Widget child) {
                     ),
                   ],
     ),
-    const Padding(
-      padding: EdgeInsets.only(top: 12.0),
-      child: Icon(Icons.notifications_none, color: Colors.white70, size: 20),
+    IconButton(
+      icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CartScreen()),
+        );
+      },
     ),
   ],
         ),
@@ -471,55 +507,36 @@ void _showSidePanel(BuildContext context, Widget child) {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  const Icon(Icons.home, color: Colors.black87),
-                  const Icon(Icons.settings_outlined, color: Colors.black54),
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: Stack(
-                          children: [
-                            const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Consumer<CartProvider>(
-                                builder: (context, cart, child) {
-                                  return cart.itemCount > 0
-                                      ? Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.deepOrange,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Text(
-                                            '${cart.itemCount}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        )
-                                      : const SizedBox.shrink();
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        onPressed: () {
-                          _showSidePanel(context, const CartScreen());
-                        },
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.home, color: Colors.black87),
+                    onPressed: () {
+                      // Ana sayfaya gitme veya mevcut sayfada kalma işlemi
+                    },
                   ),
-                  GestureDetector(
-                    onTap: () {
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, color: Colors.black54),
+                    onPressed: () {
+                      // Ayarlar sayfasına gitme işlemi
+                      // Örneğin: Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsScreen()));
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.deepOrangeAccent),
+                    onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ProfileScreen(inPanel: true)),
+                        MaterialPageRoute(builder: (_) => const CartScreen()),
                       );
                     },
-                    child: const Icon(Icons.person_outline, color: Colors.black54),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.person_outline, color: Colors.black54),
+                    onPressed: () {
+                       Navigator.push(
+                         context,
+                         MaterialPageRoute(builder: (_) => const ProfileScreen(inPanel: false)),
+                       );
+                    },
                   ),
                 ],
               ),

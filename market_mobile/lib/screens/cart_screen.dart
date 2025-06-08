@@ -273,12 +273,14 @@ class _CartScreenState extends State<CartScreen> {
                             dialogTitle = 'Fiyat Analizi';
                             dialogContent = await AnalysisService.priceAnalysis(items);
                           } else if (result == 'custom') {
+                            final TextEditingController customQuestionController = TextEditingController();
                             final customQ = await showDialog<String>(
                               context: context,
                               builder: (context) => AlertDialog(
                                 backgroundColor: Color(0xFF2C2C2E),
                                 title: Text('Sorunuzu yazın', style: TextStyle(color: Colors.white)),
                                 content: TextField(
+                                  controller: customQuestionController,
                                   autofocus: true,
                                   style: TextStyle(color: Colors.white),
                                   decoration: InputDecoration(hintText: 'Sorunuz...', hintStyle: TextStyle(color: Colors.white54)),
@@ -291,8 +293,7 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      final controller = TextEditingController();
-                                      Navigator.pop(context, controller.text);
+                                      Navigator.pop(context, customQuestionController.text);
                                     },
                                     child: Text('Sor', style: TextStyle(color: Color(0xFF6FCF97))),
                                   ),

@@ -11,7 +11,8 @@ const Color textColorWhite = Color(0xFFFFFFFF);
 const Color textColorLightGrey = Color(0xFFBDBDBD);
 
 class OrderScreen extends StatefulWidget {
-  const OrderScreen({Key? key}) : super(key: key);
+  final bool inPanel;
+  const OrderScreen({Key? key, this.inPanel = false}) : super(key: key);
 
   @override
   _OrderScreenState createState() => _OrderScreenState();

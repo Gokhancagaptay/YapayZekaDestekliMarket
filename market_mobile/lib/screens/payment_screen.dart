@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../services/stock_service.dart';
+import '../services/order_service.dart';
+import '../models/order_model.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -344,6 +346,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   height: buttonHeight,
                   child: ElevatedButton(
                     onPressed: (selectedPayment == null || !kvkkOk || !contractOk || _selectedAddressId == null) ? null : () async {
+                      // Sipariş için adres bilgilerini al
+                      final selectedAddress = _addresses.firstWhere(
+                        (addr) => (addr['id'] ?? addr['_id']) == _selectedAddressId,
+                        orElse: () => <String, dynamic>{},
+                      );
+                      
                       // Stoğa ekleme işlemi
                       final List<Map<String, dynamic>> stockItems = cartItems.map((item) => {
                         'id': item.id,
@@ -355,15 +363,71 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         'price': item.price,
                         'stock': item.stock,
                       }).toList();
+                      
                       for (final item in stockItems) {
-                        print('Stoğa eklenecek ürün: [36m${item['name']}[0m - kategori: [33m${item['category']}[0m');
+                        print('Stoğa eklenecek ürün: [36m${item['name']}[0m - kategori: [33m${item['category']}[0m');
                         await StockService.addOrUpdateStock(item);
                       }
-                      cart.clear();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Satın alma ve stoğa ekleme başarılı!')),
-                      );
-                      Navigator.of(context).pop();
+                      
+                      // Sipariş ekleme işlemi
+                      try {
+                        // Sepetteki ürünleri sipariş formatına dönüştür
+                        final List<Map<String, dynamic>> orderProducts = cartItems.map((item) => {
+                          'name': item.name,
+                          'quantity': item.quantity,
+                          'price': item.price,
+                          'imageUrl': item.imageUrl,
+                        }).toList();
+                        
+                        // Sipariş numarası oluştur (basit bir örnek)
+                        final String orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+                        
+                        // Adres bilgisini String tipine dönüştürme
+                        Map<String, String> orderAddress = {};
+                        if (selectedAddress.isNotEmpty) {
+                          selectedAddress.forEach((key, value) {
+                            orderAddress[key] = value?.toString() ?? '';
+                          });
+                        } else {
+                          orderAddress = {'full': 'Adres bilgisi bulunamadı'};
+                        }
+                        
+                        // OrderModel oluştur
+                        final OrderModel newOrder = OrderModel(
+                          orderId: '', // OrderService içinde oluşturulacak
+                          userId: '', // OrderService içinde alınacak
+                          orderNumber: orderNumber,
+                          products: orderProducts,
+                          totalPrice: totalAmount,
+                          paymentMethod: selectedPayment ?? 'Kapıda Ödeme',
+                          address: orderAddress,
+                          lastFourDigits: selectedPayment == 'Kredi Kartı' 
+                              ? _cardNoController.text.isEmpty ? null : _cardNoController.text.replaceAll(' ', '').substring(_cardNoController.text.length - 4)
+                              : null,
+                          timestamp: DateTime.now().millisecondsSinceEpoch,
+                          status: 'active',
+                          rating: null,
+                        );
+                        
+                        // OrderService ile siparişi ekle
+                        final orderService = OrderService();
+                        await orderService.addOrder(newOrder);
+                        
+                        print('Sipariş başarıyla oluşturuldu: $orderNumber');
+                        
+                        // Sepeti temizle
+                        cart.clear();
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Satın alma işlemi başarılı! Sipariş oluşturuldu.')),
+                        );
+                        Navigator.of(context).pop();
+                      } catch (e) {
+                        print('Sipariş oluşturma hatası: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Sipariş oluşturulurken hata oluştu: $e')),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepOrange,

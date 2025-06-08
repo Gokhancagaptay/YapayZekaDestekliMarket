@@ -126,22 +126,52 @@ class OrderService {
         return;
       }
       
-      // Önce SDK yöntemi ile deneyelim
+      bool success = false;
+      String errorMsg = "";
+      
+      // Önce HTTP yöntemi ile deneyelim (daha güvenilir)
       try {
-        print('🔄 Firebase SDK ile sipariş ekleniyor...');
-        DatabaseReference orderRef = _database.ref(databasePath).push();
-        await orderRef.set(orderJson);
-        print('✅ Firebase SDK ile sipariş başarıyla kaydedildi. ID: ${orderRef.key}');
-      } catch (sdkError) {
-        print('⚠️ Firebase SDK hatası: $sdkError. HTTP ile yeniden deneniyor...');
-        // SDK ile hata alırsak HTTP ile deneyelim
+        print('🔄 HTTP ile sipariş ekleniyor...');
+        final url = "$_firebaseDbUrl/orders/$userId.json";
+        final response = await http.post(
+          Uri.parse(url),
+          body: json.encode(orderJson),
+        );
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          print('✅ Firebase\'e sipariş HTTP ile başarıyla eklendi. Oluşturulan ID: ${data['name']}');
+          success = true;
+        } else {
+          errorMsg = 'HTTP ${response.statusCode}: ${response.body}';
+          print('❌ Firebase\'e HTTP ile sipariş eklenemedi. $errorMsg');
+        }
+      } catch (httpError) {
+        errorMsg = httpError.toString();
+        print('⚠️ HTTP ile sipariş eklerken hata: $errorMsg. SDK ile denenecek...');
+      }
+      
+      // HTTP başarısız olduysa SDK ile deneyelim
+      if (!success) {
         try {
-          await _directFirebaseAdd(userId, orderJson);
-        } catch (httpError) {
-          print('⚠️ HTTP ile de sipariş eklenemedi: $httpError. Yerel olarak kaydediliyor...');
+          print('🔄 Firebase SDK ile sipariş ekleniyor...');
+          DatabaseReference orderRef = _database.ref(databasePath).push();
+          await orderRef.set(orderJson);
+          print('✅ Firebase SDK ile sipariş başarıyla kaydedildi. ID: ${orderRef.key}');
+          success = true;
+        } catch (sdkError) {
+          errorMsg += " | SDK hatası: $sdkError";
+          print('⚠️ Firebase SDK hatası: $sdkError.');
+          
+          // Son çare olarak yerel kayıt
           await _saveOrderLocally(newOrder);
           print('✅ Sipariş #${order.orderNumber} yerel olarak kaydedildi. İnternet bağlantısı geldiğinde senkronize edilecek.');
         }
+      }
+      
+      if (!success) {
+        print('❌ Sipariş eklenemedi. Tüm yöntemler başarısız oldu. Hatalar: $errorMsg');
+        throw Exception('Order could not be added: $errorMsg');
       }
       
       print('✅ Sipariş #${order.orderNumber} işlemi tamamlandı');
